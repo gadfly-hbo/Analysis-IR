@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import resource
 import sys
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,23 @@ from typing import Any
 import duckdb
 
 from methods import sales_methods as m
+
+
+def _apply_resource_limits(limits: dict[str, Any]) -> None:
+    """M3：OS 级资源上限（G7 决议）。RLIMIT_AS 在 macOS 上可能不被内核强制
+    （Linux 有效），此处尽力设置并依赖 RLIMIT_FSIZE（macOS 有效）约束临时空间。
+    """
+    try:
+        memory_bytes = int(limits["memory_mb"]) * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
+    except (ValueError, OSError):
+        pass  # macOS 常见：RLIMIT_AS 不生效；DuckDB memory_limit 仍兜底
+    try:
+        fsize_bytes = int(limits["temp_space_mb"]) * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_FSIZE, (fsize_bytes, fsize_bytes))
+    except (ValueError, OSError) as exc:
+        _emit({"type": "fatal", "code": "LIMIT_ERROR", "message": str(exc)})
+        sys.exit(5)
 
 _STEP_METHODS = {
     "quality": m.run_quality,
@@ -48,6 +66,7 @@ def run_request(request: dict[str, Any]) -> int:
     run_dir = _resolve_within(Path(request["run_dir"]), roots, "PATH_NOT_ALLOWED")
     snapshot_path = _resolve_within(Path(request["snapshot_path"]), roots, "PATH_NOT_ALLOWED")
     limits = request["limits"]
+    _apply_resource_limits(limits)
     scope = request["scope"]
     coverage = request["coverage"]
     currency = request.get("currency", "CNY")

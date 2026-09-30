@@ -176,18 +176,39 @@ class ExportService:
         if package_manifest["format_version"] != "1.0.0":
             raise ExportError(f"不支持的包版本: {package_manifest['format_version']}")
 
+        max_entry_bytes = 50 * 1024 * 1024
         for entry in package_manifest["entries"]:
+            info = zf.getinfo(entry["path"])
+            if info.file_size > max_entry_bytes:
+                raise ExportError(f"条目过大（>{max_entry_bytes}B）: {entry['path']}")
             payload = zf.read(entry["path"])
             if digest_bytes(payload) != entry["sha256"]:
                 raise ExportError(f"摘要不符: {entry['path']}")
 
         imported_kinds: list[str] = []
         plan_id, plan_status = "", "NEEDS_INPUT"
+        from toolkit.contracts import OBJECT_KINDS, ContractViolation, validate_object
+
+        registry_kinds = {"method-registry", "check-registry"}  # 内部资产，无契约 Schema
         for name in sorted(names):
             if not name.startswith("objects/") or not name.endswith(".json"):
                 continue
             kind = PurePosixPath(name).stem
+            if kind not in OBJECT_KINDS and kind not in registry_kinds:
+                raise ExportError(f"未知对象种类: {kind}")
             doc = json.loads(zf.read(name))
+            if kind in registry_kinds:
+                structurally_ok = (
+                    doc.get("id") and doc.get("semver")
+                    and isinstance(doc.get("entries"), list)
+                )
+                if not structurally_ok:
+                    raise ExportError(f"注册表结构非法: {kind}")
+            else:
+                try:
+                    validate_object(kind, doc)  # 压缩包是不可信输入（proposal 10.3）
+                except ContractViolation as exc:
+                    raise ExportError(f"对象不合契约: {kind}: {exc}") from exc
             existing = self.store.get(
                 kind, doc.get("id") or doc.get("plan_id"), doc.get("version", 1)
             )

@@ -131,13 +131,7 @@ class ProjectStore:
         ).fetchone()
         return json.loads(row["doc"]) if row else None
 
-    def exists(self, kind: str, obj_id: str, version: int | str) -> bool:
-        if isinstance(version, str):
-            row = self._conn.execute(
-                "SELECT 1 FROM objects WHERE kind = ? AND id = ? AND doc LIKE ?",
-                (kind, obj_id, f'%"version": "{version}"%'),
-            ).fetchone()
-            return row is not None
+    def exists(self, kind: str, obj_id: str, version: int) -> bool:
         return self.get(kind, obj_id, version) is not None
 
     def latest_version(self, kind: str, obj_id: str) -> int | None:

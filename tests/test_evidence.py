@@ -30,8 +30,8 @@ class TestCollectAndVerify:
 
     def test_golden_run_verifies_passed(self, tmp_path: Path) -> None:
         env = build_env(tmp_path)
-        _, evidence, _ = _run_and_collect(env)
-        result = evidence.verify(env.store.get_kv and "run-0001")
+        record, evidence, _ = _run_and_collect(env)
+        result = evidence.verify(record["run_id"])
         assert result.status == "PASSED"
         assert result.acceptance_allowed
 

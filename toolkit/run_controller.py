@@ -152,6 +152,15 @@ class RunController:
         )
         if manifest is None or not self.context.verify_snapshot(manifest):
             return "SNAPSHOT_MISMATCH"
+        contract = self.store.get(
+            "analysis-contract", plan["contract_ref"]["id"], plan["contract_ref"]["version"]
+        )
+        scope = (contract or {}).get("comparison_scope", {})
+        if not all(
+            isinstance(scope.get(p), dict) and scope[p].get("start") and scope[p].get("end")
+            for p in ("base_period", "report_period")
+        ):
+            return "NOT_AUTHORIZED"  # 缺比较范围不可能持有有效确认；防御性兜底
         return None
 
     def _exec_manifest_for(self, plan: dict[str, Any]) -> dict[str, Any]:

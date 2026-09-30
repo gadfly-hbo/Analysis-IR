@@ -98,7 +98,8 @@ def run_quality(
          "detail": f"{duplicates} 条重复 row_id（不可静默去重）"},
         {"name": "key-fields-not-null", "status": "PASS" if null_keys == 0 else "FAIL",
          "detail": f"{null_keys} 行关键字段为空"},
-        {"name": "single-currency", "status": "PASS" if len(currencies) <= 1 else "FAIL",
+        {"name": "single-currency",
+         "status": "PASS" if currencies == [metric_currency] else "FAIL",
          "detail": f"币种: {currencies}（契约 {metric_currency}）"},
         {"name": "coverage", "status": coverage_status, "detail": coverage_detail},
     ]

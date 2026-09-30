@@ -62,19 +62,26 @@ export const client = {
     apiPost<{ g0_passed: boolean; status: string; issues: ValidationIssue[] }>(
       `/api/plans/${id}/${version}/validate`, {}
     ),
-  bind: (id: string, version: number, sourceFile: string, treatments: Record<string, string>, dates: string[]) =>
-    apiPost<{ warnings: string[] }>(`/api/bindings`, {
+  bind: (id: string, version: number, sourceFile: string, treatments: Record<string, string>, dates: string[], eligibilityFile?: string) =>
+    apiPost<{ warnings: string[]; binding: { scope: { mode: string; label: string; same_store: boolean } } }>(`/api/bindings`, {
       plan_id: id, plan_version: version, source_file: sourceFile,
       metric_treatments: treatments,
       coverage: { kind: dates.length ? "manifest-ref" : "unverified", dates },
+      store_eligibility: eligibilityFile
+        ? { list_file: eligibilityFile, rule_note: "用户提供的门店资格清单" }
+        : undefined,
       operator: "analyst-a",
     }),
   compile: (id: string, version: number) =>
     apiPost(`/api/plans/${id}/${version}/compile`, {}),
-  approve: (id: string, version: number) =>
+  approve: (id: string, version: number, acks: { code: string; note?: string }[] = []) =>
     apiPost<{ approval: Record<string, unknown> }>(`/api/plans/${id}/${version}/approve`, {
-      operator: "analyst-a", action: "approve", origin: "ui", warnings_acknowledged: [],
+      operator: "analyst-a", action: "approve", origin: "ui", warnings_acknowledged: acks,
     }),
+  diff: (id: string, va: number, vb: number) =>
+    apiGet<{ entries: { path: string; old: unknown; new: unknown; impact: string }[] }>(
+      `/api/plans/${id}/diff/${va}/${vb}`
+    ),
   startRun: (id: string, version: number) =>
     apiPost<{ run: { run_id: string; status: string; steps: { step_id: string; status: string }[] } }>(
       "/api/runs", { plan_id: id, plan_version: version, operator: "analyst-a" }
@@ -91,6 +98,20 @@ export const client = {
     apiGet<{ findings: { finding_id: string; type: string; statement: string; evidence_item_ids: string[] }[] }>(
       `/api/runs/${runId}/findings`
     ),
+  generateFindings: (runId: string) =>
+    apiPost<{ findings: { finding_id: string; type: string; statement: string; evidence_item_ids: string[] }[] }>(
+      `/api/runs/${runId}/findings/generate`, {}
+    ),
+  addToVerify: (runId: string, text: string) =>
+    apiPost<{ finding: { finding_id: string } }>(`/api/runs/${runId}/to-verify`, { text }),
+  proposeChange: (planId: string, planVersion: number, reason: string, changes: unknown[]) =>
+    apiPost<{ change_request: { cr_id: string } }>("/api/changes", {
+      plan_id: planId, plan_version: planVersion, reason, proposed_by: "user", changes,
+    }),
+  mergeChange: (crId: string) =>
+    apiPost<{ merged: { merged_plan_version?: number } }>(`/api/changes/${crId}/merge`, {
+      operator: "analyst-a",
+    }),
   exportPackage: (id: string, version: number, mode: string) =>
     apiPost<{ package: string }>("/api/exports", {
       plan_id: id, plan_version: version, mode, operator: "analyst-a",

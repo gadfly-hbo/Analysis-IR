@@ -302,6 +302,7 @@ class PlanService:
                         )
                     )
 
+        issues.extend(self._scope_issues(plan))
         issues.extend(self._reference_issues(plan))
         issues.extend(self._artifact_issues(plan))
 
@@ -352,6 +353,27 @@ class PlanService:
             if color[node] == WHITE:
                 visit(node, [])
         return found
+
+    def _scope_issues(self, plan: dict[str, Any]) -> list[ValidationIssue]:
+        """T03：比较范围（两期）必须显式声明，缺期间不可确认。"""
+        contract = self.store.get(
+            "analysis-contract", plan["contract_ref"]["id"], plan["contract_ref"]["version"]
+        )
+        if contract is None:
+            return []  # 引用缺失已由 MISSING_REFERENCE 报告
+        issues: list[ValidationIssue] = []
+        scope = contract.get("comparison_scope", {})
+        for period in ("base_period", "report_period"):
+            value = scope.get(period)
+            if not isinstance(value, dict) or not value.get("start") or not value.get("end"):
+                issues.append(
+                    ValidationIssue(
+                        "MISSING_COMPARISON_SCOPE",
+                        f"contract.comparison_scope.{period}",
+                        f"比较范围未说明: {period}（T03：未确认不可执行）",
+                    )
+                )
+        return issues
 
     def _reference_issues(self, plan: dict[str, Any]) -> list[ValidationIssue]:
         issues: list[ValidationIssue] = []

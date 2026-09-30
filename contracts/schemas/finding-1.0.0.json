@@ -5,6 +5,15 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "finding_id", "run_id", "type", "statement", "evidence_item_ids", "status"],
+  "allOf": [
+    {
+      "if": {"properties": {"type": {"const": "to-verify"}}},
+      "then": {},
+      "else": {
+        "properties": {"evidence_item_ids": {"minItems": 1}}
+      }
+    }
+  ],
   "properties": {
     "schema_version": {"const": "1.0.0"},
     "finding_id": {"type": "string", "pattern": "^finding-[a-z0-9-]+$"},
@@ -12,7 +21,7 @@
     "type": {"enum": ["descriptive", "arithmetic-decomposition", "to-verify", "human-judgement"]},
     "statement": {"type": "string", "minLength": 1},
     "evidence_item_ids": {
-      "type": "array", "minItems": 1,
+      "type": "array",
       "items": {"type": "string", "pattern": "^ev-[a-z0-9-]+$"}
     },
     "status": {"enum": ["draft", "published", "revised", "retired"]},

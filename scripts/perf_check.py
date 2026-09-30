@@ -100,11 +100,17 @@ def main(rows: int) -> None:
     peak_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     peak_child_kb = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
 
+    run_dir = files_dir / "runs" / record["run_id"]
+    temp_space_bytes = sum(
+        f.stat().st_size for f in run_dir.rglob("*") if f.is_file()
+    )
+
     result = {
         "rows": rows,
         "run_status": record["status"],
         "gen_csv_s": round(gen_seconds, 2),
         **{k: round(v, 2) for k, v in marks.items()},
+        "run_dir_temp_space_mb": round(temp_space_bytes / 1024 / 1024, 2),
         "peak_rss_parent_mb": round(peak_kb / rss_divisor, 1),
         "peak_rss_child_mb": round(peak_child_kb / rss_divisor, 1),
         "python": sys.version.split()[0],

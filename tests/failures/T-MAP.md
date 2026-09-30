@@ -24,7 +24,7 @@
 | T18 | 无证据的因果结论 | S6 | tests/failures/test_t18_unevidenced_cause.py | covered → tests/test_evidence.py::TestFindings |
 | T19 | 模板复用清除旧状态 | S7 | tests/failures/test_t19_template_reuse.py | covered → tests/test_template_export.py |
 | T20 | 导出/导入异常包 | S7 | tests/failures/test_t20_export_import.py | covered → tests/test_template_export.py |
-| T21 | 同源可读性 | S9 | tests/failures/test_t21_same_source_render.py（UI 冒烟） | covered → tests/test_http_layer.py::test_same_source_readability |
+| T21 | 同源可读性 | S9 | tests/failures/test_t21_same_source_render.py（UI 冒烟） | covered（服务级同源）→ tests/test_http_layer.py::test_same_source_readability + UI 冒烟 app/web/src/smoke.test.tsx |
 | T22 | 不支持的计划（环/坏引用/未知版本） | S2 | tests/failures/test_t22_unsupported_plan.py | covered → tests/test_plan_service.py::TestValidate |
 | T23 | 错误维度合计（切片相加） | S5 | tests/failures/test_t23_dimension_double_count.py | covered → tests/test_runner.py::TestExecutionBlocks |
 | T24 | 无模型/断网 | S10 | tests/failures/test_t24_offline.py | covered → tests/test_t_matrix.py::TestOfflineStandalone |

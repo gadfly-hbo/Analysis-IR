@@ -116,8 +116,12 @@ class TestHttpHappyPath:
             headers=_auth(token),
         )
         assert accept.status_code == 200
-        findings = client.get(f"/api/runs/{run_id}/findings", headers=_auth(token))
-        assert len(findings.json()["findings"]) == 3
+        generated = client.post(
+            f"/api/runs/{run_id}/findings/generate", headers=_auth(token)
+        )
+        assert len(generated.json()["findings"]) == 3
+        listed = client.get(f"/api/runs/{run_id}/findings", headers=_auth(token))
+        assert len(listed.json()["findings"]) == 3  # GET 纯读取，无副作用
 
     def test_same_source_readability(self, tmp_path: Path) -> None:
         """T21：用户阅读对象与机器执行对象同源——同一 digest，不存在双份权威文本。"""

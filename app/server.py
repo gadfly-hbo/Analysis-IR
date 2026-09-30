@@ -98,6 +98,12 @@ def create_app(project_root: Path) -> FastAPI:
         source = Path(body["source_file"]).expanduser()
         if not source.exists():
             raise HTTPException(422, f"数据文件不存在: {source}")
+        eligibility = body.get("store_eligibility")
+        if eligibility:
+            eligibility = {
+                "list_file": Path(eligibility["list_file"]).expanduser(),
+                "rule_note": eligibility.get("rule_note", ""),
+            }
         result = context.bind(
             plan=plan,
             source_file=source,
@@ -110,6 +116,7 @@ def create_app(project_root: Path) -> FastAPI:
             coverage=body.get("coverage") or {"kind": "unverified"},
             operator=body["operator"],
             store=store,
+            store_eligibility=eligibility,
         )
         return {"manifest": result.manifest, "binding": result.binding,
                 "warnings": result.warnings}
@@ -198,14 +205,56 @@ def create_app(project_root: Path) -> FastAPI:
 
     @app.get("/api/runs/{run_id}/findings")
     def run_findings(run_id: str) -> dict[str, Any]:
+        # 纯读取：生成走显式 POST，避免 GET 副作用
         findings = [f for f in store.list_objects("finding") if f["run_id"] == run_id]
-        if not findings:
-            record = store.get("run-record", run_id, 1)
-            if record is None:
-                raise HTTPException(404, f"run not found: {run_id}")
-            allowed = ["descriptive", "arithmetic-decomposition"]
-            findings = generate_findings(store, files_dir, run_id, allowed)
         return {"findings": findings}
+
+    @app.post("/api/runs/{run_id}/findings/generate")
+    def generate_run_findings(run_id: str) -> dict[str, Any]:
+        record = store.get("run-record", run_id, 1)
+        if record is None:
+            raise HTTPException(404, f"run not found: {run_id}")
+        plan = store.get("analysis-plan-ir", record["plan_id"], record["plan_version"])
+        if plan is None:
+            raise HTTPException(409, "计划对象缺失")
+        try:
+            findings = generate_findings(
+                store, files_dir, run_id,
+                list(plan["output_contract"]["allowed_finding_types"]),
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(409, f"结果产物缺失（运行未完成）: {exc}") from exc
+        return {"findings": findings}
+
+    @app.post("/api/runs/{run_id}/to-verify")
+    def add_to_verify_finding(run_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        from toolkit.findings import add_to_verify
+
+        if store.get("run-record", run_id, 1) is None:
+            raise HTTPException(404, f"run not found: {run_id}")
+        finding = add_to_verify(store, run_id, body["text"], body.get("operator", "analyst-a"))
+        return {"finding": finding}
+
+    @app.post("/api/changes")
+    def propose_change(body: dict[str, Any]) -> dict[str, Any]:
+        from toolkit.change_service import ChangeService
+
+        cr = ChangeService(store, plan_service).propose(
+            plan_id=body["plan_id"], plan_version=body["plan_version"],
+            reason=body["reason"], proposed_by=body.get("proposed_by", "user"),
+            changes=body["changes"],
+        )
+        return {"change_request": cr}
+
+    @app.post("/api/changes/{cr_id}/merge")
+    def merge_change(cr_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        from toolkit.change_service import ChangeService
+
+        try:
+            merged = ChangeService(store, plan_service).merge(cr_id, body["operator"])
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"merged": merged}
 
     @app.post("/api/templates/extract")
     def extract_template(body: dict[str, Any]) -> dict[str, Any]:

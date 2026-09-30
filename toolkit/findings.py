@@ -25,6 +25,32 @@ def _yuan(cents: int) -> float:
     return cents / 100.0
 
 
+def add_to_verify(
+    store: ProjectStore, run_id: str, text: str, operator: str
+) -> dict[str, Any]:
+    """T18：把因果含义的候选文本放入待验证区（to-verify，draft 状态）。
+
+    待验证项不进入结论区、不参与自动通过；获得证据前只能停留在审查区。
+    """
+    if not text.strip():
+        raise ValueError("待验证文本不能为空")
+    existing = [f for f in store.list_objects("finding") if f["run_id"] == run_id]
+    finding = {
+        "schema_version": "1.0.0",
+        "finding_id": f"finding-{run_id}-to-verify-{len(existing) + 1}",
+        "run_id": run_id,
+        "type": "to-verify",
+        "statement": text.strip(),
+        "evidence_item_ids": [],
+        "status": "draft",
+        "limitations": ["候选解释尚未获得证据；不构成结论"],
+    }
+    validate_object("finding", finding)
+    store.put("finding", finding, created_at=_now())
+    store.audit(_now(), operator, "add_to_verify", f"{finding['finding_id']}")
+    return finding
+
+
 def generate_findings(
     store: ProjectStore, project_dir: Path, run_id: str, allowed_types: list[str]
 ) -> list[dict[str, Any]]:
@@ -74,19 +100,23 @@ def generate_findings(
             top_neg = next((g for g in ranked if g["delta_cents"] < 0), None)
             top_pos = next((g for g in ranked if g["delta_cents"] > 0), None)
             parts = [f"按 {artifact['dimension']} 拆解（独立切片，不相加）："]
+            numbers: list[dict[str, Any]] = []
             if top_neg:
                 parts.append(
                     f"最大负向贡献 {top_neg['value']} {_yuan(top_neg['delta_cents']):,.2f}"
                 )
+                numbers.append({
+                    "label": f"{artifact['dimension']} 最大负向",
+                    "value": _yuan(top_neg["delta_cents"]),
+                    "evidence_item_id": ev_id,
+                })
             if top_pos:
                 parts.append(
                     f"最大正向贡献 {top_pos['value']} {_yuan(top_pos['delta_cents']):,.2f}"
                 )
-            numbers = []
-            if top_neg:
                 numbers.append({
-                    "label": f"{artifact['dimension']} 最大负向",
-                    "value": _yuan(top_neg["delta_cents"]),
+                    "label": f"{artifact['dimension']} 最大正向",
+                    "value": _yuan(top_pos["delta_cents"]),
                     "evidence_item_id": ev_id,
                 })
             findings.append({

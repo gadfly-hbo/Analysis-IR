@@ -50,4 +50,5 @@ uv run python scripts/perf_check.py 100000   # 性能记录 → docs/performance
 ## 边界（P0 明确不做）
 
 任意生成 SQL/Python 执行、LLM 集成（P1）、JuanerAI/Xanthil 对接（P2）、
-企业权限、多租户、断点续跑。外部 Agent 仅可导入结构化草稿，夹带代码被拒绝（T15）。
+企业权限、多租户、断点续跑。外部 Agent 仅可导入结构化草稿（经 Schema 负例校验，夹带字段被拒绝，T15；专用导入入口属 P1）。
+已知限制：取消运行为同步模型的声明式接口（超时/中断路径已强制）；macOS 上 RLIMIT_AS 可能不被内核强制（RLIMIT_FSIZE 有效）。

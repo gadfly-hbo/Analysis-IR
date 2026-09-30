@@ -1,8 +1,12 @@
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
+/// <reference types="vitest" />
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: "jsdom",
+  },
   server: {
     // 本地开发：代理到本机 FastAPI 服务（回环）
     proxy: {

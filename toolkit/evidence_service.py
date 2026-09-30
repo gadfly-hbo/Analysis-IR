@@ -61,6 +61,11 @@ class EvidenceService:
 
     def collect(self, run_id: str) -> dict[str, Any]:
         run = self._run_record(run_id)
+        plan = self.store.get("analysis-plan-ir", run["plan_id"], run["plan_version"])
+        assert plan is not None
+        step_versions = {
+            s["step_id"]: s["method_ref"].rsplit("@", 1)[1] for s in plan["steps"]
+        }
         artifacts_dir = self.project_dir / "runs" / run_id / "artifacts"
         items: list[dict[str, Any]] = []
         for name in sorted(_ARTIFACT_STEP):
@@ -72,7 +77,7 @@ class EvidenceService:
                 "item_id": f"ev-{name}",
                 "step_id": _ARTIFACT_STEP[name],
                 "kind": "check-record" if name in _CHECK_ARTIFACTS else "method-output",
-                "method_or_check_version": "1.0.0",
+                "method_or_check_version": step_versions[_ARTIFACT_STEP[name]],
                 "artifact": f"runs/{run_id}/artifacts/{name}.json",
                 "artifact_digest": digest_bytes(path.read_bytes()),
                 "generated_at": _now(),
