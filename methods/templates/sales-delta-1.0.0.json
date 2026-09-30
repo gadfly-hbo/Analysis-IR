@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "template_id": "template-sales-delta",
+  "version": 1,
+  "name": "销售差异与多维贡献拆解",
+  "question_frame": "在确认销售口径与比较范围后，计算整体变化，识别不同门店、品类对应的数值贡献；列出尚不能验证的解释。",
+  "steps": [
+    {"step_id": "quality", "method_ref": "sales-methods:quality@1.0.0", "depends_on": [], "outputs": ["quality-evidence"]},
+    {"step_id": "scope", "method_ref": "sales-methods:scope@1.0.0", "depends_on": ["quality"], "param_slot": "comparison-scope", "outputs": ["scoped-sales", "scope-evidence"]},
+    {"step_id": "overall", "method_ref": "sales-methods:period-delta@1.0.0", "depends_on": ["scope"], "outputs": ["overall-delta"]},
+    {"step_id": "store", "method_ref": "sales-methods:group-delta@1.0.0", "depends_on": ["scope"], "param_slot": "dimension-store", "outputs": ["store-delta"]},
+    {"step_id": "category", "method_ref": "sales-methods:group-delta@1.0.0", "depends_on": ["scope"], "param_slot": "dimension-category", "outputs": ["category-delta"]},
+    {"step_id": "validate", "method_ref": "sales-methods:reconcile@1.0.0", "depends_on": ["overall", "store", "category"], "outputs": ["reconciliation-evidence"]}
+  ],
+  "param_slots": [
+    {"name": "question", "kind": "text", "required": true},
+    {"name": "decision_purpose", "kind": "text", "required": true},
+    {"name": "base_period", "kind": "period", "required": true},
+    {"name": "report_period", "kind": "period", "required": true}
+  ],
+  "applicable_conditions": [
+    {"condition": "单一事实表（行级销售记录）", "boundary": "不承担多表建模与数据清洗"},
+    {"condition": "单一币种、同口径两期比较", "boundary": "混合币种或口径未确认时阻断"},
+    {"condition": "结论类型限于描述与数值拆解", "boundary": "因果解释进入待验证区"}
+  ],
+  "required_check_refs": [
+    "sales-checks:quality-and-coverage@1.0.0",
+    "sales-checks:group-reconciliation@1.0.0",
+    "sales-checks:evidence-coverage@1.0.0"
+  ]
+}

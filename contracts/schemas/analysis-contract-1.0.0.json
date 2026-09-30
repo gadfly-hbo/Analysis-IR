@@ -3,6 +3,17 @@
   "$id": "https://analysis-ir.local/contracts/analysis-contract-1.0.0.json",
   "title": "业务约定：为什么分析、支持什么决策、边界与非目标",
   "type": "object",
+  "$defs": {
+    "period_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_date"},
+        "end": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_date"}
+      }
+    }
+  },
   "additionalProperties": false,
   "required": [
     "schema_version", "id", "version", "decision_purpose", "question",
@@ -21,8 +32,8 @@
       "additionalProperties": false,
       "required": ["base_period", "report_period"],
       "properties": {
-        "base_period": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_date"},
-        "report_period": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_date"},
+        "base_period": {"$ref": "#/$defs/period_range"},
+        "report_period": {"$ref": "#/$defs/period_range"},
         "store_eligibility": {
           "type": "object",
           "additionalProperties": false,

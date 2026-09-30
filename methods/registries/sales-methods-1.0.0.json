@@ -1,0 +1,47 @@
+{
+  "id": "sales-methods",
+  "semver": "1.0.0",
+  "revision": 1,
+  "methods": [
+    {
+      "name": "quality",
+      "version": "1.0.0",
+      "description": "S01 数据质量检查：类型、行唯一性、关键字段、覆盖范围、币种",
+      "inputs": ["dataset"],
+      "params": {},
+      "outputs": ["quality-evidence"]
+    },
+    {
+      "name": "scope",
+      "version": "1.0.0",
+      "description": "S02 构建比较范围：两个期间、门店资格、过滤规则、未知维度处理",
+      "inputs": ["dataset"],
+      "params": {"comparison_scope": "ref:analysis-contract"},
+      "outputs": ["scoped-sales", "scope-evidence"]
+    },
+    {
+      "name": "period-delta",
+      "version": "1.0.0",
+      "description": "S03 整体差异：基期、报告期、变化额、变化率",
+      "inputs": ["scoped-sales"],
+      "params": {},
+      "outputs": ["overall-delta"]
+    },
+    {
+      "name": "group-delta",
+      "version": "1.0.0",
+      "description": "S04/S05 分组拆解：每分组两期金额及变化，对账回整体",
+      "inputs": ["scoped-sales"],
+      "params": {"dimension": "enum:store_id,category_id"},
+      "outputs": ["group-delta"]
+    },
+    {
+      "name": "reconcile",
+      "version": "1.0.0",
+      "description": "S06 对账与交付：加总检查、覆盖、结论资格、限制清单",
+      "inputs": ["overall-delta", "group-delta"],
+      "params": {},
+      "outputs": ["reconciliation-evidence"]
+    }
+  ]
+}

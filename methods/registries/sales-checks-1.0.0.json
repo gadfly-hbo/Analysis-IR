@@ -1,0 +1,31 @@
+{
+  "id": "sales-checks",
+  "semver": "1.0.0",
+  "revision": 1,
+  "checks": [
+    {
+      "name": "quality-and-coverage",
+      "version": "1.0.0",
+      "stage": "preflight",
+      "required": true,
+      "failure_action": "block-acceptance",
+      "description": "行唯一性、关键字段完整、币种一致、期间覆盖（无覆盖证明时 UNKNOWN）"
+    },
+    {
+      "name": "group-reconciliation",
+      "version": "1.0.0",
+      "stage": "post-run",
+      "required": true,
+      "failure_action": "block-acceptance",
+      "description": "各切片 Δg 之和 = 整体 Δ（定点金额精确比较）"
+    },
+    {
+      "name": "evidence-coverage",
+      "version": "1.0.0",
+      "stage": "post-run",
+      "required": true,
+      "failure_action": "block-acceptance",
+      "description": "每条数值发现可追溯至本次运行的证据项"
+    }
+  ]
+}
