@@ -72,9 +72,14 @@ def create_app(project_root: Path) -> FastAPI:
 
     @app.post("/api/plans")
     def create_plan(body: dict[str, Any]) -> dict[str, Any]:
-        result = plan_service.create_draft(
-            body.get("template", "sales-delta"), body.get("params", {}), body["operator"]
-        )
+        try:
+            result = plan_service.create_draft(
+                body.get("template", "sales-delta"), body.get("params", {}), body["operator"]
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
         return {
             "plan": result.plan,
             "contract": result.contract,
@@ -99,26 +104,31 @@ def create_app(project_root: Path) -> FastAPI:
         source = Path(body["source_file"]).expanduser()
         if not source.exists():
             raise HTTPException(422, f"数据文件不存在: {source}")
+        from adapters.local_context.context_port import BindingError
+
         eligibility = body.get("store_eligibility")
         if eligibility:
             eligibility = {
                 "list_file": Path(eligibility["list_file"]).expanduser(),
                 "rule_note": eligibility.get("rule_note", ""),
             }
-        result = context.bind(
-            plan=plan,
-            source_file=source,
-            field_map=body.get("field_map") or {
-                "row_id": "row_id", "business_date": "business_date",
-                "store_id": "store_id", "category_id": "category_id",
-                "net_sales_amount": "net_sales_amount", "currency": "currency",
-            },
-            metric_treatments=body.get("metric_treatments") or {},
-            coverage=body.get("coverage") or {"kind": "unverified"},
-            operator=body["operator"],
-            store=store,
-            store_eligibility=eligibility,
-        )
+        try:
+            result = context.bind(
+                plan=plan,
+                source_file=source,
+                field_map=body.get("field_map") or {
+                    "row_id": "row_id", "business_date": "business_date",
+                    "store_id": "store_id", "category_id": "category_id",
+                    "net_sales_amount": "net_sales_amount", "currency": "currency",
+                },
+                metric_treatments=body.get("metric_treatments") or {},
+                coverage=body.get("coverage") or {"kind": "unverified"},
+                operator=body["operator"],
+                store=store,
+                store_eligibility=eligibility,
+            )
+        except BindingError as exc:
+            raise HTTPException(422, f"{exc.code} @ {exc.location}: {exc}") from exc
         return {"manifest": result.manifest, "binding": result.binding,
                 "warnings": result.warnings}
 
@@ -147,6 +157,27 @@ def create_app(project_root: Path) -> FastAPI:
         except Exception as exc:  # noqa: BLE001 - 门禁拒绝 → 409
             raise HTTPException(409, str(exc)) from exc
         return {"approval": approval}
+
+    @app.get("/api/contracts/{contract_id}/{version}")
+    def get_contract(contract_id: str, version: int) -> dict[str, Any]:
+        contract = store.get("analysis-contract", contract_id, version)
+        if contract is None:
+            raise HTTPException(404, f"contract not found: {contract_id}@{version}")
+        return {"contract": contract}
+
+    @app.post("/api/changes/{cr_id}/withdraw")
+    def withdraw_change(cr_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        from toolkit.change_service import ChangeService
+
+        try:
+            withdrawn = ChangeService(store, plan_service).withdraw(
+                cr_id, body["operator"]
+            )
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        return {"change_request": withdrawn}
 
     @app.get("/api/plans/{plan_id}/diff/{va}/{vb}")
     def diff_plans(plan_id: str, va: int, vb: int) -> dict[str, Any]:
@@ -250,7 +281,7 @@ def create_app(project_root: Path) -> FastAPI:
                 changes=body["changes"],
             )
         except KeyError as exc:
-            raise HTTPException(404, str(exc)) from exc
+            raise HTTPException(422, f"缺少字段: {exc}") from exc
         except (ValueError, ContractViolation) as exc:
             raise HTTPException(422, str(exc)) from exc
         return {"change_request": cr}
@@ -263,7 +294,9 @@ def create_app(project_root: Path) -> FastAPI:
         try:
             merged = ChangeService(store, plan_service).merge(cr_id, body["operator"])
         except KeyError as exc:
-            raise HTTPException(404, str(exc)) from exc
+            if "not found" in str(exc):
+                raise HTTPException(404, str(exc)) from exc
+            raise HTTPException(422, f"缺少字段: {exc}") from exc
         except ContractViolation as exc:
             raise HTTPException(422, f"合入将产生不合契约的对象: {exc}") from exc
         except (ValueError, ImmutableViolationError) as exc:
@@ -285,6 +318,8 @@ def create_app(project_root: Path) -> FastAPI:
             )
         except KeyError as exc:
             raise HTTPException(404, str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
         return {"plan": result.plan, "unresolved": result.unresolved}
 
     @app.post("/api/exports")

@@ -59,6 +59,17 @@ class ChangeService:
         assert cr is not None
         return cr
 
+    def withdraw(self, cr_id: str, operator: str) -> dict[str, Any]:
+        cr = self._load_latest(cr_id)
+        if cr["status"] != "proposed":
+            raise ValueError(f"CR 不可撤回（状态 {cr['status']}）")
+        withdrawn = {**cr, "version": cr["version"] + 1, "status": "withdrawn",
+                     "decided_at": _now()}
+        validate_object("change-request", withdrawn)
+        self.store.put("change-request", withdrawn, created_at=_now())
+        self.store.audit(_now(), operator, "withdraw_cr", cr_id)
+        return withdrawn
+
     def merge(self, cr_id: str, operator: str) -> dict[str, Any]:
         cr = self._load_latest(cr_id)
         if cr["status"] != "proposed":

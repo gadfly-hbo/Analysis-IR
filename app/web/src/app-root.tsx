@@ -253,6 +253,7 @@ function DataPage(props: { task: TaskState; onAck: (ack: boolean) => void; onBou
   const [sourceFile, setSourceFile] = useState("");
   const [dates, setDates] = useState("");
   const [eligibilityFile, setEligibilityFile] = useState("");
+  const [eligibilityRule, setEligibilityRule] = useState("");
   const [treatments, setTreatments] = useState({ tax: "net-of-tax", discounts: "after-discount", returns_attribution: "transaction-period" });
   const [warnings, setWarnings] = useState<string[] | null>(null);
   const [error, setError] = useState("");
@@ -263,7 +264,7 @@ function DataPage(props: { task: TaskState; onAck: (ack: boolean) => void; onBou
       const res = await client.bind(
         props.task.planId, props.task.planVersion, sourceFile, treatments,
         dates.split(",").map((d) => d.trim()).filter(Boolean),
-        eligibilityFile || undefined
+        eligibilityFile ? { file: eligibilityFile, ruleNote: eligibilityRule } : undefined
       );
       setWarnings(res.warnings);
       props.onAck(res.warnings.some((w) => w.includes("coverage")));
@@ -292,6 +293,13 @@ function DataPage(props: { task: TaskState; onAck: (ack: boolean) => void; onBou
           <input placeholder="/path/to/eligible-stores.csv（留空 = 全量观察范围）"
                  value={eligibilityFile} onChange={(e) => setEligibilityFile(e.target.value)} />
         </div>
+        {eligibilityFile && (
+          <div className="field">
+            <label>资格规则说明（如：两期均完整营业）</label>
+            <input value={eligibilityRule} onChange={(e) => setEligibilityRule(e.target.value)}
+                   placeholder="两期均完整营业" />
+          </div>
+        )}
         {(["tax", "discounts", "returns_attribution"] as const).map((key) => (
           <div className="field" key={key}>
             <label>{key === "tax" ? "税口径" : key === "discounts" ? "优惠口径" : "退款归属"}</label>
@@ -366,16 +374,24 @@ function ConfirmPage(props: { task: TaskState; onApproved: () => void }) {
   };
   const [crNewStart, setCrNewStart] = useState("");
   const [proposedCr, setProposedCr] = useState<string | null>(null);
+  const [crOldValue, setCrOldValue] = useState("");
   const propose = async () => {
     setError("");
     setCrResult("");
     try {
+      const created = await client.getPlan(props.task.planId, props.task.planVersion);
+      const contractId = String((created.plan as { contract_ref?: { id?: string } }).contract_ref?.id ?? "");
+      const contract = await client.getContract(contractId, 1);
+      const scope = contract.contract.comparison_scope as
+        { base_period?: { start?: string } } | undefined;
+      const currentStart = scope?.base_period?.start ?? "";
       const res = await client.proposeChange(
         props.task.planId, props.task.planVersion, crReason,
-        [{ path: "contract.comparison_scope.base_period.start", old: "(当前值)",
+        [{ path: "contract.comparison_scope.base_period.start", old: currentStart,
            new: crNewStart, impact: "scope" }]
       );
       setProposedCr(res.change_request.cr_id);
+      setCrOldValue(currentStart);
     } catch (e) { setError(String(e)); }
   };
   const merge = async () => {
@@ -455,11 +471,18 @@ function ConfirmPage(props: { task: TaskState; onApproved: () => void }) {
         ) : (
           <>
             <p className="note">
-              变更请求 {proposedCr} 已生成：comparison_scope.base_period.start → {crNewStart}。
-              合入将产生新版本并使旧确认失效。
+              变更请求 {proposedCr} 已生成：comparison_scope.base_period.start
+              「{crOldValue}」→「{crNewStart}」。合入将产生新版本并使旧确认失效。
             </p>
             <button className="primary" onClick={merge}>确认合入</button>{" "}
-            <button className="secondary" onClick={() => setProposedCr(null)}>放弃</button>
+            <button
+              className="secondary"
+              onClick={async () => {
+                if (!proposedCr) return;
+                await client.withdrawChange(proposedCr);
+                setProposedCr(null);
+              }}
+            >撤回（记录保留）</button>
           </>
         )}
         {crResult && <p className="note">{crResult}</p>}

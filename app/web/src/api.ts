@@ -62,13 +62,13 @@ export const client = {
     apiPost<{ g0_passed: boolean; status: string; issues: ValidationIssue[] }>(
       `/api/plans/${id}/${version}/validate`, {}
     ),
-  bind: (id: string, version: number, sourceFile: string, treatments: Record<string, string>, dates: string[], eligibilityFile?: string) =>
+  bind: (id: string, version: number, sourceFile: string, treatments: Record<string, string>, dates: string[], eligibility?: { file: string; ruleNote: string }) =>
     apiPost<{ warnings: string[]; binding: { scope: { mode: string; label: string; same_store: boolean } } }>(`/api/bindings`, {
       plan_id: id, plan_version: version, source_file: sourceFile,
       metric_treatments: treatments,
       coverage: { kind: dates.length ? "manifest-ref" : "unverified", dates },
-      store_eligibility: eligibilityFile
-        ? { list_file: eligibilityFile, rule_note: "用户提供的门店资格清单" }
+      store_eligibility: eligibility?.file
+        ? { list_file: eligibility.file, rule_note: eligibility.ruleNote || "用户提供的门店资格清单" }
         : undefined,
       operator: "analyst-a",
     }),
@@ -78,6 +78,12 @@ export const client = {
     apiPost<{ approval: Record<string, unknown> }>(`/api/plans/${id}/${version}/approve`, {
       operator: "analyst-a", action: "approve", origin: "ui", warnings_acknowledged: acks,
     }),
+  getContract: (id: string, version: number) =>
+    apiGet<{ contract: { id: string; comparison_scope?: Record<string, unknown> } }>(
+      `/api/contracts/${id}/${version}`
+    ),
+  withdrawChange: (crId: string) =>
+    apiPost(`/api/changes/${crId}/withdraw`, { operator: "analyst-a" }),
   diff: (id: string, va: number, vb: number) =>
     apiGet<{ entries: { path: string; old: unknown; new: unknown; impact: string }[] }>(
       `/api/plans/${id}/diff/${va}/${vb}`

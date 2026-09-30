@@ -100,8 +100,8 @@ def run_quality(
         {"name": "key-fields-not-null", "status": "PASS" if null_keys == 0 else "FAIL",
          "detail": f"{null_keys} 行关键字段为空"},
         {"name": "single-currency",
-         "status": "PASS" if currencies == [metric_currency] else "FAIL",
-         "detail": f"币种: {currencies}（契约 {metric_currency}）"},
+         "status": "PASS" if currencies in ([], [metric_currency]) else "FAIL",
+         "detail": f"币种: {currencies or '(空列，视同契约默认)'}（契约 {metric_currency}）"},
         {"name": "coverage", "status": coverage_status, "detail": coverage_detail},
     ]
     failed = [c for c in checks if c["status"] == "FAIL"]

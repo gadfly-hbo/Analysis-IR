@@ -238,3 +238,81 @@ class TestChangeRequestHttp:
         response = client.post(f"/api/runs/{run['run_id']}/to-verify",
                                json={"text": "  "}, headers=_auth(token))
         assert response.status_code == 422
+
+class TestR3InputValidation:
+    def test_create_plan_bad_date_returns_422(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        client = TestClient(create_app(project_root))
+        token = _token(client)
+        bad_params = dict(PARAMS)
+        bad_params["base_period"] = {"start": "not-a-date", "end": "2026-07-31"}
+        response = client.post(
+            "/api/plans", json={"template": "sales-delta", "params": bad_params,
+                                 "operator": "analyst-a"},
+            headers=_auth(token),
+        )
+        assert response.status_code == 422
+        assert "base_period" in response.text
+
+    def test_create_plan_start_after_end_returns_422(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        client = TestClient(create_app(project_root))
+        token = _token(client)
+        bad_params = dict(PARAMS)
+        bad_params["base_period"] = {"start": "2026-08-31", "end": "2026-07-01"}
+        assert client.post(
+            "/api/plans", json={"template": "sales-delta", "params": bad_params,
+                                 "operator": "analyst-a"},
+            headers=_auth(token),
+        ).status_code == 422
+
+    def test_binding_error_maps_to_422(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        client = TestClient(create_app(project_root))
+        token = _token(client)
+        created = client.post(
+            "/api/plans", json={"template": "sales-delta", "params": PARAMS,
+                                 "operator": "analyst-a"},
+            headers=_auth(token),
+        ).json()
+        # 数据文件存在但缺 store_id 列 → BindingError → 422（不再是 500）
+        broken = tmp_path / "broken.csv"
+        lines = GOLDEN_CSV.read_text().splitlines()
+        header = [c for c in lines[0].split(",") if c != "store_id"]
+        body_lines = [
+            ",".join([v for i, v in enumerate(line.split(",")) if i != 2])
+            for line in lines[1:]
+        ]
+        broken.write_text("\n".join([",".join(header)] + body_lines) + "\n")
+        response = client.post(
+            "/api/bindings",
+            json={"plan_id": created["plan"]["plan_id"], "plan_version": 1,
+                  "source_file": str(broken), "metric_treatments": dict(TREATMENTS),
+                  "coverage": {"kind": "unverified"}, "operator": "analyst-a"},
+            headers=_auth(token),
+        )
+        assert response.status_code == 422
+        assert "store_id" in response.text
+
+    def test_change_withdraw_records_state(self, tmp_path: Path) -> None:
+        env = TestChangeRequestHttp()
+        client, token, plan = env._approved_env(tmp_path)
+        proposed = client.post(
+            "/api/changes",
+            json={"plan_id": plan["plan_id"], "plan_version": 1, "reason": "r",
+                  "changes": [{"path": "contract.comparison_scope.base_period.start",
+                               "old": "2026-07-01", "new": "2026-07-08",
+                               "impact": "scope"}]},
+            headers=_auth(token),
+        ).json()["change_request"]["cr_id"]
+        withdrawn = client.post(f"/api/changes/{proposed}/withdraw",
+                                json={"operator": "analyst-a"}, headers=_auth(token))
+        assert withdrawn.status_code == 200
+        assert withdrawn.json()["change_request"]["status"] == "withdrawn"
+        # 撤回后不可再合入
+        merged = client.post(f"/api/changes/{proposed}/merge",
+                             json={"operator": "analyst-a"}, headers=_auth(token))
+        assert merged.status_code == 409

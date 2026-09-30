@@ -9,7 +9,7 @@ import pytest
 from env_helper import GOLDEN_CSV, build_env
 
 from adapters.local_store.project_store import ProjectStore
-from toolkit.approval_service import ApprovalRejected
+from toolkit.approval_service import ApprovalRejected, ApprovalService
 from toolkit.evidence_service import EvidenceService
 from toolkit.execution import compile_execution_manifest
 from toolkit.findings import add_to_verify, generate_findings
@@ -50,11 +50,7 @@ class TestB1MissingScopeGate:
 
         compile_execution_manifest(store, result.plan)
         from adapters.local_context.context_port import LocalContext as LC
-        approval_svc_module = __import__("toolkit.approval_service",
-                                         fromlist=["ApprovalService"])
-        approvals = approval_svc_module.ApprovalService(
-            store, svc, LC(project_dir=tmp_path / "files")
-        )
+        approvals = ApprovalService(store, svc, LC(project_dir=tmp_path / "files"))
         with pytest.raises(ApprovalRejected, match="G0_NOT_PASSED"):
             approvals.approve(
                 result.plan["plan_id"], 1,
