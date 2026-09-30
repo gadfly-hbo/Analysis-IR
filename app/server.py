@@ -53,8 +53,11 @@ def create_app(project_root: Path) -> FastAPI:
                 return JSONResponse({"error": "origin-not-allowed"}, status_code=403)
         auth = request.headers.get("x-aps-token", "")
         open_paths = {"/api/health", "/api/session-token"}
-        if request.url.path not in open_paths and not secrets.compare_digest(
-            auth, session_token
+        # 令牌只保护 /api/* 执行端点；静态 UI 本身须可加载（令牌由应用启动后获取）
+        if (
+            request.url.path.startswith("/api/")
+            and request.url.path not in open_paths
+            and not secrets.compare_digest(auth, session_token)
         ):
             return JSONResponse({"error": "unauthorized"}, status_code=401)
         return await call_next(request)

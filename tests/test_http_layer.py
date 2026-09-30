@@ -361,3 +361,14 @@ class TestR4Regression:
         response = client.post("/api/plans", json={"template": "sales-delta"},
                                headers=_auth(token))
         assert response.status_code == 422
+
+class TestStaticUIGuard:
+    def test_ui_home_loads_without_token(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        client = TestClient(create_app(project_root))
+        response = client.get("/")
+        assert response.status_code == 200
+        assert "Analysis Plan Studio" in response.text
+        # API 仍然需要令牌
+        assert client.get("/api/plans/x/1").status_code == 401
