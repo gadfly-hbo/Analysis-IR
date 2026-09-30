@@ -12,7 +12,7 @@ from typing import Any
 
 from adapters.local_context.context_port import LocalContext
 from adapters.local_store.project_store import ProjectStore
-from toolkit.contracts import validate_object
+from toolkit.contracts import ContractViolation, validate_object
 from toolkit.digest import digest
 from toolkit.execution import get_registry
 from toolkit.plan_service import PlanService
@@ -117,6 +117,16 @@ class ApprovalService:
         report = self.plan_service.validate(plan_id, plan_version)
         if not report.g0_passed:
             raise ApprovalRejected("G0_NOT_PASSED", "计划未通过 G0 校验，不可确认")
+
+        contract = self.store.get(
+            "analysis-contract", plan["contract_ref"]["id"], plan["contract_ref"]["version"]
+        )
+        if contract is None:
+            raise ApprovalRejected("MISSING_REFERENCE", "业务约定不存在")
+        try:
+            validate_object("analysis-contract", contract)  # R2-2：确认边界全 Schema 校验
+        except ContractViolation as exc:
+            raise ApprovalRejected("INVALID_CONTRACT", f"业务约定不合契约: {exc}") from exc
 
         metrics = [
             self.store.get("metric-contract", m["id"], m["version"]) for m in plan["metric_refs"]

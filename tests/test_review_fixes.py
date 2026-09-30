@@ -27,8 +27,8 @@ class TestB1MissingScopeGate:
             {"question": "销售为什么下降", "decision_purpose": "评估"},  # 故意缺两期
             operator="analyst-a",
         )
-        assert any("base_period" in u and "report_period" in u or "base_period" in u
-                   for u in result.unresolved)
+        assert any("base_period" in u for u in result.unresolved)
+        assert any("report_period" in u for u in result.unresolved)
         report = svc.validate(result.plan["plan_id"], 1)
         codes = {i.code for i in report.issues}
         assert "MISSING_COMPARISON_SCOPE" in codes
@@ -62,11 +62,11 @@ class TestB1MissingScopeGate:
                  "warnings_acknowledged": []},
             )
 
-    def test_controller_blocks_scopeless_plan_defensively(self, tmp_path: Path) -> None:
-        """即使确认被绕过（防御路径），缺范围也不允许启动运行（不裸崩）。"""
+    def test_normal_path_unaffected_by_scope_gate(self, tmp_path: Path) -> None:
+        """正常路径回归：完整期间的已确认计划不受 R2-2 门禁影响。"""
         env = build_env(tmp_path)
         record = env.controller.start(env.draft["plan_id"], 1, operator="analyst-a")
-        assert record["status"] == "COMPLETED"  # 正常路径不受影响
+        assert record["status"] == "COMPLETED"
 
 
 class TestM5ToVerifyZone:
@@ -121,3 +121,61 @@ class TestM3ResourceLimits:
         assert result.returncode != 0
         assert '"type": "done"' not in result.stdout, result.stdout
         assert "COMPLETED" not in result.stdout, result.stdout
+
+class TestR2InvalidDates:
+    def test_bad_date_contract_rejected_at_creation(self, tmp_path: Path) -> None:
+        """R2-2：start=not-a-date 在创建边界即被拒绝。"""
+        from adapters.local_store.project_store import ProjectStore
+        from toolkit.plan_service import PlanService
+
+        svc = PlanService(ProjectStore(tmp_path / "p.db"))
+        svc.register_builtin_registries()
+        with pytest.raises(ValueError, match="base_period"):
+            svc.create_draft("sales-delta", {
+                "question": "q", "decision_purpose": "p",
+                "base_period": {"start": "not-a-date", "end": "2026-07-31"},
+                "report_period": {"start": "2026-08-01", "end": "2026-08-31"},
+            }, operator="analyst-a")
+
+    def test_bad_date_contract_cannot_be_approved(self, tmp_path: Path) -> None:
+        """R2-2：绕过创建边界直接改库的坏契约 → G0 阻断 + 确认拒绝。"""
+        from adapters.local_context.context_port import LocalContext
+        from adapters.local_store.project_store import ProjectStore
+        from toolkit.approval_service import ApprovalService
+        from toolkit.execution import compile_execution_manifest
+        from toolkit.plan_service import PlanService
+
+        store = ProjectStore(tmp_path / "p.db")
+        svc = PlanService(store)
+        svc.register_builtin_registries()
+        result = svc.create_draft("sales-delta", {
+            "question": "q", "decision_purpose": "p",
+            "base_period": {"start": "2026-07-01", "end": "2026-07-31"},
+            "report_period": {"start": "2026-08-01", "end": "2026-08-31"},
+        }, operator="analyst-a")
+        # 直接改库伪造坏日期（模拟外部篡改；正常路径被创建边界拦截）
+        contract = store.get("analysis-contract", result.contract["id"], 1)
+        contract["comparison_scope"]["base_period"]["start"] = "not-a-date"
+        store._conn.execute(
+            "UPDATE objects SET doc = ? "
+            "WHERE kind = 'analysis-contract' AND id = ? AND version = 1",
+            (json.dumps(contract, ensure_ascii=False), result.contract["id"]),
+        )
+        store._conn.commit()
+
+        from tests.env_helper import FIELD_MAP, GOLDEN_COVERAGE, TREATMENTS
+        LocalContext(project_dir=tmp_path / "files").bind(
+            plan=result.plan, source_file=GOLDEN_CSV, field_map=dict(FIELD_MAP),
+            metric_treatments=dict(TREATMENTS), coverage=dict(GOLDEN_COVERAGE),
+            operator="analyst-a", store=store,
+        )
+        report = svc.validate(result.plan["plan_id"], 1)
+        assert any(i.code == "INVALID_COMPARISON_SCOPE" for i in report.issues)
+        compile_execution_manifest(store, result.plan)
+        approvals = ApprovalService(store, svc, LocalContext(project_dir=tmp_path / "files"))
+        with pytest.raises(ApprovalRejected, match="G0_NOT_PASSED|INVALID_CONTRACT"):
+            approvals.approve(
+                result.plan["plan_id"], 1,
+                {"operator": "a", "action": "approve", "origin": "test",
+                 "warnings_acknowledged": []},
+            )

@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from adapters.local_context.context_port import LocalContext
+from adapters.local_store.project_store import ImmutableViolation as ImmutableViolationError
 from adapters.local_store.project_store import ProjectStore
 from toolkit.approval_service import ApprovalService
 from toolkit.evidence_service import EvidenceError, EvidenceService
@@ -232,27 +233,40 @@ def create_app(project_root: Path) -> FastAPI:
 
         if store.get("run-record", run_id, 1) is None:
             raise HTTPException(404, f"run not found: {run_id}")
+        if not str(body.get("text", "")).strip():
+            raise HTTPException(422, "待验证文本不能为空")
         finding = add_to_verify(store, run_id, body["text"], body.get("operator", "analyst-a"))
         return {"finding": finding}
 
     @app.post("/api/changes")
     def propose_change(body: dict[str, Any]) -> dict[str, Any]:
         from toolkit.change_service import ChangeService
+        from toolkit.contracts import ContractViolation
 
-        cr = ChangeService(store, plan_service).propose(
-            plan_id=body["plan_id"], plan_version=body["plan_version"],
-            reason=body["reason"], proposed_by=body.get("proposed_by", "user"),
-            changes=body["changes"],
-        )
+        try:
+            cr = ChangeService(store, plan_service).propose(
+                plan_id=body["plan_id"], plan_version=body["plan_version"],
+                reason=body["reason"], proposed_by=body.get("proposed_by", "user"),
+                changes=body["changes"],
+            )
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except (ValueError, ContractViolation) as exc:
+            raise HTTPException(422, str(exc)) from exc
         return {"change_request": cr}
 
     @app.post("/api/changes/{cr_id}/merge")
     def merge_change(cr_id: str, body: dict[str, Any]) -> dict[str, Any]:
         from toolkit.change_service import ChangeService
+        from toolkit.contracts import ContractViolation
 
         try:
             merged = ChangeService(store, plan_service).merge(cr_id, body["operator"])
-        except (KeyError, ValueError) as exc:
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except ContractViolation as exc:
+            raise HTTPException(422, f"合入将产生不合契约的对象: {exc}") from exc
+        except (ValueError, ImmutableViolationError) as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"merged": merged}
 

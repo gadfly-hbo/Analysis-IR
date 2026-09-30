@@ -30,6 +30,20 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _valid_period(value: Any) -> bool:
+    """期间必须形如 {start, end} 的合法 ISO 日期且 start ≤ end（R2-2）。"""
+    from datetime import date as _date
+
+    if not isinstance(value, dict):
+        return False
+    try:
+        start = _date.fromisoformat(str(value.get("start")))
+        end = _date.fromisoformat(str(value.get("end")))
+    except ValueError:
+        return False
+    return start <= end
+
+
 @dataclass(frozen=True)
 class DraftResult:
     contract: dict[str, Any]
@@ -124,7 +138,12 @@ class PlanService:
         scope: dict[str, Any] = {"store_eligibility": {"mode": "all-stores"}}
         for period in ("base_period", "report_period"):
             if period in params:
-                scope[period] = params[period]
+                value = params[period]
+                if not _valid_period(value):
+                    raise ValueError(
+                        f"{period} 非法（需 {{start, end}} 且为合法日期，start ≤ end）: {value}"
+                    )
+                scope[period] = value
         return {
             "schema_version": "1.0.0",
             "id": f"contract-{slug}",
@@ -371,6 +390,14 @@ class PlanService:
                         "MISSING_COMPARISON_SCOPE",
                         f"contract.comparison_scope.{period}",
                         f"比较范围未说明: {period}（T03：未确认不可执行）",
+                    )
+                )
+            elif not _valid_period(value):
+                issues.append(
+                    ValidationIssue(
+                        "INVALID_COMPARISON_SCOPE",
+                        f"contract.comparison_scope.{period}",
+                        f"比较范围非法（日期格式或顺序错误）: {value}（proposal 7.2）",
                     )
                 )
         return issues

@@ -162,3 +162,79 @@ class TestHttpHappyPath:
     def test_404_for_unknown_run(self, client: TestClient) -> None:
         token = _token(client)
         assert client.get("/api/runs/run-9999", headers=_auth(token)).status_code == 404
+
+class TestChangeRequestHttp:
+    def _approved_env(self, tmp_path: Path):
+        from adapters.local_context.context_port import LocalContext
+        from adapters.local_store.project_store import ProjectStore
+
+        project_root = tmp_path / "project"
+        project_root.mkdir(exist_ok=True)
+        app = create_app(project_root)
+        client = TestClient(app)
+        token = _token(client)
+        created = client.post(
+            "/api/plans", json={"template": "sales-delta", "params": PARAMS,
+                                 "operator": "analyst-a"},
+            headers=_auth(token),
+        ).json()
+        plan = created["plan"]
+        store = ProjectStore(project_root / "project.db")
+        LocalContext(project_dir=project_root / "files").bind(
+            plan=plan, source_file=GOLDEN_CSV, field_map=dict(FIELD_MAP),
+            metric_treatments=dict(TREATMENTS), coverage=dict(GOLDEN_COVERAGE),
+            operator="analyst-a", store=store,
+        )
+        client.post(f"/api/plans/{plan['plan_id']}/1/validate", headers=_auth(token))
+        client.post(f"/api/plans/{plan['plan_id']}/1/compile", headers=_auth(token))
+        client.post(
+            f"/api/plans/{plan['plan_id']}/1/approve",
+            json={"operator": "analyst-a", "action": "approve", "origin": "ui",
+                  "warnings_acknowledged": []},
+            headers=_auth(token),
+        )
+        return client, token, plan
+
+    def test_cr_valid_value_merges_to_new_version(self, tmp_path: Path) -> None:
+        client, token, plan = self._approved_env(tmp_path)
+        proposed = client.post(
+            "/api/changes",
+            json={"plan_id": plan["plan_id"], "plan_version": 1, "reason": "基期提前",
+                  "changes": [{"path": "contract.comparison_scope.base_period.start",
+                               "old": "2026-07-01", "new": "2026-07-08",
+                               "impact": "scope"}]},
+            headers=_auth(token),
+        )
+        assert proposed.status_code == 200
+        cr_id = proposed.json()["change_request"]["cr_id"]
+        merged = client.post(f"/api/changes/{cr_id}/merge",
+                             json={"operator": "analyst-a"}, headers=_auth(token))
+        assert merged.status_code == 200
+        assert merged.json()["merged"]["merged_plan_version"] == 2
+        diffs = client.get(f"/api/plans/{plan['plan_id']}/diff/1/2", headers=_auth(token))
+        assert any("base_period.start" in e["path"] for e in diffs.json()["entries"])
+
+    def test_cr_invalid_value_rejected_422(self, tmp_path: Path) -> None:
+        client, token, plan = self._approved_env(tmp_path)
+        proposed = client.post(
+            "/api/changes",
+            json={"plan_id": plan["plan_id"], "plan_version": 1, "reason": "坏值",
+                  "changes": [{"path": "contract.comparison_scope.base_period.start",
+                               "old": "2026-07-01", "new": "not-a-date",
+                               "impact": "scope"}]},
+            headers=_auth(token),
+        )
+        cr_id = proposed.json()["change_request"]["cr_id"]
+        merged = client.post(f"/api/changes/{cr_id}/merge",
+                             json={"operator": "analyst-a"}, headers=_auth(token))
+        assert merged.status_code == 422  # 不再是 500
+
+    def test_to_verify_empty_text_422(self, tmp_path: Path) -> None:
+        client, token, plan = self._approved_env(tmp_path)
+        run = client.post("/api/runs",
+                          json={"plan_id": plan["plan_id"], "plan_version": 1,
+                                "operator": "analyst-a"},
+                          headers=_auth(token)).json()["run"]
+        response = client.post(f"/api/runs/{run['run_id']}/to-verify",
+                               json={"text": "  "}, headers=_auth(token))
+        assert response.status_code == 422

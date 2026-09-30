@@ -187,10 +187,13 @@ class RunController:
             except json.JSONDecodeError:
                 continue
             if event.get("type") == "step":
-                steps.append({
+                entry: dict[str, Any] = {
                     "step_id": event["step_id"],
                     "status": event.get("status", "FAILED"),
-                })
+                }
+                if event.get("error"):
+                    entry["error"] = str(event["error"])
+                steps.append(entry)
         return steps
 
     def _parse_worker_output(self, out: str, err: str) -> tuple[list[dict[str, Any]], str]:

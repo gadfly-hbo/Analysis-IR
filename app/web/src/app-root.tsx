@@ -364,15 +364,27 @@ function ConfirmPage(props: { task: TaskState; onApproved: () => void }) {
     try { setDiff((await client.diff(props.task.planId, diffVa, diffVb)).entries); }
     catch (e) { setError(String(e)); }
   };
-  const submitChange = async () => {
+  const [crNewStart, setCrNewStart] = useState("");
+  const [proposedCr, setProposedCr] = useState<string | null>(null);
+  const propose = async () => {
+    setError("");
+    setCrResult("");
+    try {
+      const res = await client.proposeChange(
+        props.task.planId, props.task.planVersion, crReason,
+        [{ path: "contract.comparison_scope.base_period.start", old: "(当前值)",
+           new: crNewStart, impact: "scope" }]
+      );
+      setProposedCr(res.change_request.cr_id);
+    } catch (e) { setError(String(e)); }
+  };
+  const merge = async () => {
+    if (!proposedCr) return;
     setError("");
     try {
-      const proposed = await client.proposeChange(
-        props.task.planId, props.task.planVersion, crReason,
-        [{ path: "contract.comparison_scope.base_period.start", old: "?", new: "?", impact: "scope" }]
-      );
-      const merged = await client.mergeChange(proposed.change_request.cr_id);
+      const merged = await client.mergeChange(proposedCr);
       setCrResult(`已合入 → 新版本 v${merged.merged.merged_plan_version}（旧确认失效，需重新确认）`);
+      setProposedCr(null);
     } catch (e) { setError(String(e)); }
   };
 
@@ -431,9 +443,25 @@ function ConfirmPage(props: { task: TaskState; onApproved: () => void }) {
           <input value={crReason} onChange={(e) => setCrReason(e.target.value)}
                  placeholder="例如：基期提前一周" />
         </div>
-        <button className="secondary" disabled={!crReason} onClick={submitChange}>
-          提议并合入（示例路径：基期起始日调整）
-        </button>
+        <div className="field">
+          <label>新基期起始日（ISO 日期，如 2026-07-08）</label>
+          <input value={crNewStart} onChange={(e) => setCrNewStart(e.target.value)}
+                 placeholder="2026-07-08" />
+        </div>
+        {!proposedCr ? (
+          <button className="secondary" disabled={!crReason || !crNewStart} onClick={propose}>
+            生成变更请求（先审阅，后合入）
+          </button>
+        ) : (
+          <>
+            <p className="note">
+              变更请求 {proposedCr} 已生成：comparison_scope.base_period.start → {crNewStart}。
+              合入将产生新版本并使旧确认失效。
+            </p>
+            <button className="primary" onClick={merge}>确认合入</button>{" "}
+            <button className="secondary" onClick={() => setProposedCr(null)}>放弃</button>
+          </>
+        )}
         {crResult && <p className="note">{crResult}</p>}
       </div>
     </>

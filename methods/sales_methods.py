@@ -81,7 +81,8 @@ def run_quality(
     currencies = [
         r[0]
         for r in conn.execute(
-            "SELECT DISTINCT currency FROM sales WHERE currency IS NOT NULL ORDER BY 1"
+            "SELECT DISTINCT currency FROM sales "
+            "WHERE currency IS NOT NULL AND currency <> '' ORDER BY 1"
         ).fetchall()
     ]
 
