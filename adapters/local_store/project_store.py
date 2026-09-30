@@ -37,6 +37,10 @@ CREATE TABLE IF NOT EXISTS audit_log (
     action TEXT NOT NULL,
     detail TEXT
 );
+CREATE TABLE IF NOT EXISTS kv (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 
@@ -153,6 +157,25 @@ class ProjectStore:
             (plan_id, plan_version),
         ).fetchone()
         return row["status"] if row else None
+
+    def next_seq(self, name: str) -> int:
+        """原子递增命名序列（run_id 编号用）。"""
+        cur = self._conn.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._conn.execute("SELECT value FROM kv WHERE key = ?", (name,)).fetchone()
+            next_value = (int(row["value"]) + 1) if row else 1
+            self._conn.execute(
+                "INSERT INTO kv (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (name, str(next_value)),
+            )
+            self._conn.commit()
+            return next_value
+        except Exception:
+            self._conn.rollback()
+            raise
+        finally:
+            cur.close()
 
     def audit(self, at: str, actor: str, action: str, detail: str = "") -> None:
         self._conn.execute(

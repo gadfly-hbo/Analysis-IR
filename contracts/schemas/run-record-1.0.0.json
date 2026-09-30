@@ -33,7 +33,10 @@
     "started_at": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_datetime"},
     "ended_at": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_datetime"},
     "terminated_reason": {
-      "enum": ["completed", "error", "cancelled", "timeout", "budget-exhausted", "interrupted"]
+      "enum": [
+        "completed", "error", "cancelled", "timeout", "budget-exhausted", "interrupted",
+        "capability-mismatch", "not-authorized", "snapshot-mismatch"
+      ]
     },
     "used_approval": {"type": "string", "pattern": "^approval-[a-z0-9-]+$"}
   }

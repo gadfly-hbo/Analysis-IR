@@ -8,7 +8,7 @@
       "version": "1.0.0",
       "stage": "preflight",
       "required": true,
-      "failure_action": "block-acceptance",
+      "failure_action": "block-step",
       "description": "行唯一性、关键字段完整、币种一致、期间覆盖（无覆盖证明时 UNKNOWN）"
     },
     {

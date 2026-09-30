@@ -33,6 +33,10 @@
         "kind": {"enum": ["declared-complete", "manifest-ref", "unverified"]},
         "calendar_days_expected": {"type": "integer", "minimum": 1},
         "manifest_ref": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/object_ref"},
+        "dates": {
+          "type": "array", "minItems": 1,
+          "items": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_date"}
+        },
         "acknowledged_by_user": {"type": "boolean", "default": false}
       }
     },

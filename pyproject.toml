@@ -42,4 +42,4 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["toolkit", "adapters"]
+files = ["toolkit", "adapters", "methods"]
