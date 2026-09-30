@@ -10,6 +10,7 @@
     "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "version": {"type": "integer", "minimum": 1},
     "source_file": {"type": "string", "minLength": 1},
+    "snapshot_path": {"type": "string", "minLength": 1},
     "byte_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
     "row_count": {"type": "integer", "minimum": 0},
     "parse_config": {
