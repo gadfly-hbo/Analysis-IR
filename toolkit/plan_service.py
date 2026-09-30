@@ -88,7 +88,14 @@ class PlanService:
     ) -> DraftResult:
         if template_name not in self._templates:
             raise KeyError(f"no-such-template: {template_name}")
-        template = self._templates[template_name]
+        return self.instantiate_template(self._templates[template_name], params, operator)
+
+    def instantiate_template(
+        self, template: dict[str, Any], params: dict[str, Any], operator: str
+    ) -> DraftResult:
+        """从任意模板（内置或用户保存）实例化新计划草稿（G3 决议：新 plan_id）。"""
+        validate_object(_TEMPLATE_KIND, template)
+        template_name = template["template_id"].removeprefix("template-")
 
         slug = f"{template_name}-{datetime.now(UTC):%Y%m%d}-{uuid.uuid4().hex[:4]}"
         unresolved: list[str] = []
@@ -103,7 +110,8 @@ class PlanService:
         self.store.put(_CONTRACT_KIND, contract, created_at=now)
         self.store.put(_PLAN_KIND, plan, created_at=now)
         self.store.set_status(plan["plan_id"], plan["plan_version"], _STATUS_DRAFT, now)
-        self.store.audit(now, operator, "create_draft", f"{plan['plan_id']}@{plan['plan_version']}")
+        self.store.audit(now, operator, "instantiate_template",
+                         f"{plan['plan_id']}@{plan['plan_version']}")
         return DraftResult(contract=contract, plan=plan, unresolved=unresolved)
 
     def _build_contract(
