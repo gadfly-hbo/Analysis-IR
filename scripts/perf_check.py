@@ -114,10 +114,6 @@ def main(rows: int) -> None:
 
     doc = REPO / "docs" / "performance.md"
     doc.parent.mkdir(exist_ok=True)
-    header = doc.exists() and doc.read_text(encoding="utf-8") or (
-        "# 性能与资源记录（proposal 14.4）\n\n"
-        "> 如实记录；不构成性能承诺。预算触发、取消生效与资源耗尽状态正确性另见 T16。\n\n"
-    )
     with doc.open("a", encoding="utf-8") as f:
         f.write(f"\n- `{result}`\n")
     print(f"appended -> {doc}")

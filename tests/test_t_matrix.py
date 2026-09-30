@@ -8,9 +8,9 @@ import socket
 from pathlib import Path
 
 import pytest
-
 from env_helper import GOLDEN_CSV, build_env
-from toolkit.approval_service import ApprovalRejected, ApprovalService
+
+from toolkit.approval_service import ApprovalRejected
 from toolkit.evidence_service import EvidenceError, EvidenceService
 from toolkit.execution import compile_execution_manifest
 
@@ -29,7 +29,7 @@ class TestOfflineStandalone:
         record = env.controller.start(env.draft["plan_id"], 1, operator="analyst-a")
         assert record["status"] == "COMPLETED"
         evidence = EvidenceService(env.store, env.project_dir)
-        bundle = evidence.collect(record["run_id"])
+        evidence.collect(record["run_id"])
         result = evidence.verify(record["run_id"])
         assert result.status == "PASSED"
         accepted = evidence.accept(record["run_id"], "ACCEPTED", operator="boss")
