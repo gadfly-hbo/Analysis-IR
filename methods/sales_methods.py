@@ -53,6 +53,12 @@ def _yuan(cents: int) -> float:
     return cents / 100.0
 
 
+def _scalar(conn: duckdb.DuckDBPyConnection, sql: str, params: list[Any] | None = None) -> Any:
+    row = conn.execute(sql, params or []).fetchone()
+    assert row is not None, f"查询无结果: {sql[:60]}"
+    return row[0]
+
+
 class StepFailure(Exception):
     """步骤业务失败（如质量检查 FAIL 且失败动作为 block-step）。"""
 
@@ -64,13 +70,14 @@ def run_quality(
     metric_currency: str,
 ) -> dict[str, Any]:
     """S01 数据质量检查 → quality-evidence。"""
-    total = conn.execute("SELECT COUNT(*) FROM sales").fetchone()[0]
-    distinct_ids = conn.execute("SELECT COUNT(DISTINCT row_id) FROM sales").fetchone()[0]
+    total = _scalar(conn, "SELECT COUNT(*) FROM sales")
+    distinct_ids = _scalar(conn, "SELECT COUNT(DISTINCT row_id) FROM sales")
     duplicates = total - distinct_ids
-    null_keys = conn.execute(
+    null_keys = _scalar(
+        conn,
         "SELECT COUNT(*) FROM sales WHERE row_id IS NULL OR business_date IS NULL "
-        "OR store_id IS NULL OR category_id IS NULL OR net_sales_amount IS NULL"
-    ).fetchone()[0]
+        "OR store_id IS NULL OR category_id IS NULL OR net_sales_amount IS NULL",
+    )
     currencies = [
         r[0]
         for r in conn.execute(
@@ -147,10 +154,10 @@ def run_scope(
     """S02 构建比较范围 → scoped-sales 证据（过滤后的行留在 sales 表内原地视图）。"""
     base_start, base_end = scope["base"]["start"], scope["base"]["end"]
     report_start, report_end = scope["report"]["start"], scope["report"]["end"]
-    rows_total = conn.execute("SELECT COUNT(*) FROM sales").fetchone()[0]
-    amount_total = conn.execute(
-        "SELECT COALESCE(SUM(net_sales_amount), 0) FROM sales"
-    ).fetchone()[0]
+    rows_total = _scalar(conn, "SELECT COUNT(*) FROM sales")
+    amount_total = _scalar(
+        conn, "SELECT COALESCE(SUM(net_sales_amount), 0) FROM sales"
+    )
     conn.execute(
         "CREATE OR REPLACE TABLE scoped AS SELECT * FROM sales WHERE "
         "(business_date BETWEEN ? AND ?) OR (business_date BETWEEN ? AND ?)",
@@ -161,10 +168,10 @@ def run_scope(
             "DELETE FROM scoped WHERE store_id NOT IN (SELECT unnest(?::VARCHAR[]))",
             [eligible_stores],
         )
-    rows_scoped = conn.execute("SELECT COUNT(*) FROM scoped").fetchone()[0]
-    amount_scoped = conn.execute(
-        "SELECT COALESCE(SUM(net_sales_amount), 0) FROM scoped"
-    ).fetchone()[0]
+    rows_scoped = _scalar(conn, "SELECT COUNT(*) FROM scoped")
+    amount_scoped = _scalar(
+        conn, "SELECT COALESCE(SUM(net_sales_amount), 0) FROM scoped"
+    )
     return {
         "kind": "method-output",
         "rows_before": rows_total,
@@ -176,11 +183,12 @@ def run_scope(
 
 
 def _period_sum(conn: duckdb.DuckDBPyConnection, start: str, end: str) -> int:
-    value = conn.execute(
+    value = _scalar(
+        conn,
         "SELECT COALESCE(SUM(net_sales_amount), 0) FROM scoped "
         "WHERE business_date BETWEEN ? AND ?",
         [start, end],
-    ).fetchone()[0]
+    )
     return _cents(value)
 
 
