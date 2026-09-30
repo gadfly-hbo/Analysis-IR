@@ -62,7 +62,9 @@ class LocalContext:
         path = Path(manifest["snapshot_path"])
         if not path.exists():
             return False
-        return digest_bytes(path.read_bytes()) == manifest["byte_digest"]
+        current = digest_bytes(path.read_bytes())
+        expected: str = manifest["byte_digest"]
+        return current == expected
 
     # ---------- 绑定 ----------
 
