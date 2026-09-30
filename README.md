@@ -40,7 +40,7 @@ docs/         performance.md
 ## 验证
 
 ```bash
-uv run pytest          # 110 项测试（含 T01—T24 验收矩阵，见 tests/failures/T-MAP.md）
+uv run pytest          # 113 项测试（含 T01—T24 验收矩阵，见 tests/failures/T-MAP.md）
 uv run ruff check .
 uv run mypy
 cd app/web && npm run build

@@ -375,13 +375,19 @@ function ConfirmPage(props: { task: TaskState; onApproved: () => void }) {
   const [crNewStart, setCrNewStart] = useState("");
   const [proposedCr, setProposedCr] = useState<string | null>(null);
   const [crOldValue, setCrOldValue] = useState("");
+  const callAsync = (fn: () => Promise<unknown>) => async () => {
+    setError("");
+    try { await fn(); } catch (e) { setError(String(e)); }
+  };
   const propose = async () => {
     setError("");
     setCrResult("");
     try {
       const created = await client.getPlan(props.task.planId, props.task.planVersion);
-      const contractId = String((created.plan as { contract_ref?: { id?: string } }).contract_ref?.id ?? "");
-      const contract = await client.getContract(contractId, 1);
+      const contractRef = (created.plan as { contract_ref?: { id?: string; version?: number } })
+        .contract_ref;
+      const contractId = String(contractRef?.id ?? "");
+      const contract = await client.getContract(contractId, Number(contractRef?.version ?? 1));
       const scope = contract.contract.comparison_scope as
         { base_period?: { start?: string } } | undefined;
       const currentStart = scope?.base_period?.start ?? "";
@@ -477,11 +483,8 @@ function ConfirmPage(props: { task: TaskState; onApproved: () => void }) {
             <button className="primary" onClick={merge}>确认合入</button>{" "}
             <button
               className="secondary"
-              onClick={async () => {
-                if (!proposedCr) return;
-                await client.withdrawChange(proposedCr);
-                setProposedCr(null);
-              }}
+              onClick={callAsync(() => client.withdrawChange(proposedCr ?? "")
+                .then(() => setProposedCr(null)))}
             >撤回（记录保留）</button>
           </>
         )}

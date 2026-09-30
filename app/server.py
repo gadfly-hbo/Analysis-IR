@@ -79,7 +79,9 @@ def create_app(project_root: Path) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         except KeyError as exc:
-            raise HTTPException(404, str(exc)) from exc
+            if "no-such-template" in str(exc) or "not found" in str(exc):
+                raise HTTPException(404, str(exc)) from exc
+            raise HTTPException(422, f"缺少字段: {exc}") from exc
         return {
             "plan": result.plan,
             "contract": result.contract,
@@ -100,16 +102,30 @@ def create_app(project_root: Path) -> FastAPI:
 
     @app.post("/api/bindings")
     def create_binding(body: dict[str, Any]) -> dict[str, Any]:
-        plan = plan_service.get_plan(body["plan_id"], body["plan_version"])
-        source = Path(body["source_file"]).expanduser()
-        if not source.exists():
-            raise HTTPException(422, f"数据文件不存在: {source}")
         from adapters.local_context.context_port import BindingError
 
+        try:
+            plan = plan_service.get_plan(body["plan_id"], body["plan_version"])
+        except KeyError as exc:
+            if "not found" in str(exc):
+                raise HTTPException(404, str(exc)) from exc
+            raise HTTPException(422, f"缺少字段: {exc}") from exc
+        try:
+            source = Path(body["source_file"]).expanduser()
+        except KeyError as exc:
+            raise HTTPException(422, f"缺少字段: {exc}") from exc
+        if not source.exists():
+            raise HTTPException(422, f"数据文件不存在: {source}")
         eligibility = body.get("store_eligibility")
         if eligibility:
+            try:
+                list_file = Path(eligibility["list_file"]).expanduser()
+            except KeyError as exc:
+                raise HTTPException(422, f"缺少字段: {exc}") from exc
+            if not list_file.exists():
+                raise HTTPException(422, f"门店资格清单不存在: {list_file}")
             eligibility = {
-                "list_file": Path(eligibility["list_file"]).expanduser(),
+                "list_file": list_file,
                 "rule_note": eligibility.get("rule_note", ""),
             }
         try:
@@ -174,7 +190,9 @@ def create_app(project_root: Path) -> FastAPI:
                 cr_id, body["operator"]
             )
         except KeyError as exc:
-            raise HTTPException(404, str(exc)) from exc
+            if "not found" in str(exc):
+                raise HTTPException(404, str(exc)) from exc
+            raise HTTPException(422, f"缺少字段: {exc}") from exc
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
         return {"change_request": withdrawn}

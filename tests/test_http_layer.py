@@ -316,3 +316,48 @@ class TestR3InputValidation:
         merged = client.post(f"/api/changes/{proposed}/merge",
                              json={"operator": "analyst-a"}, headers=_auth(token))
         assert merged.status_code == 409
+
+class TestR4Regression:
+    def test_binding_unknown_plan_404_not_500(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        client = TestClient(create_app(project_root))
+        token = _token(client)
+        response = client.post(
+            "/api/bindings",
+            json={"plan_id": "no-such-plan", "plan_version": 1,
+                  "source_file": str(GOLDEN_CSV), "operator": "analyst-a"},
+            headers=_auth(token),
+        )
+        assert response.status_code == 404
+
+    def test_binding_bad_eligibility_path_422_not_500(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        client = TestClient(create_app(project_root))
+        token = _token(client)
+        created = client.post(
+            "/api/plans", json={"template": "sales-delta", "params": PARAMS,
+                                 "operator": "analyst-a"},
+            headers=_auth(token),
+        ).json()
+        response = client.post(
+            "/api/bindings",
+            json={"plan_id": created["plan"]["plan_id"], "plan_version": 1,
+                  "source_file": str(GOLDEN_CSV),
+                  "store_eligibility": {"list_file": "/no/such/list.csv",
+                                         "rule_note": "x"},
+                  "operator": "analyst-a"},
+            headers=_auth(token),
+        )
+        assert response.status_code == 422
+        assert "资格清单" in response.text
+
+    def test_create_plan_missing_field_422(self, tmp_path: Path) -> None:
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        client = TestClient(create_app(project_root))
+        token = _token(client)
+        response = client.post("/api/plans", json={"template": "sales-delta"},
+                               headers=_auth(token))
+        assert response.status_code == 422
