@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analysis-ir.local/contracts/change-request-1.0.0.json",
+  "title": "变更请求：原因、旧值/新值、影响对象与处理结果",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cr_id", "plan_id", "reason", "changes", "status"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "cr_id": {"type": "string", "pattern": "^cr-[a-z0-9-]+$"},
+    "plan_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "reason": {"type": "string", "minLength": 1},
+    "proposed_by": {"enum": ["user", "agent"]},
+    "changes": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "old", "new", "impact"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "old": {},
+          "new": {},
+          "impact": {
+            "enum": ["scope", "method", "data", "validation", "permission", "cosmetic"]
+          }
+        }
+      }
+    },
+    "status": {"enum": ["proposed", "merged", "rejected", "withdrawn"]},
+    "merged_plan_version": {"type": "integer", "minimum": 2},
+    "decided_at": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_datetime"}
+  }
+}

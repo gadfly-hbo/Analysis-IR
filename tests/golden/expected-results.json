@@ -1,0 +1,40 @@
+{
+  "description": "金标准期望结果（手算字面量，独立于任何实现；品类合计与 proposal 4.5 示例一致）",
+  "periods": {
+    "base": {"start": "2026-07-01", "end": "2026-07-31"},
+    "report": {"start": "2026-08-01", "end": "2026-08-31"}
+  },
+  "overall": {
+    "base_amount": 1000000,
+    "report_amount": 870000,
+    "delta": -130000,
+    "rate": -0.13
+  },
+  "by_store": {
+    "S01": {"base_amount": 360000, "report_amount": 310000, "delta": -50000},
+    "S02": {"base_amount": 360000, "report_amount": 300000, "delta": -60000},
+    "S03": {"base_amount": 280000, "report_amount": 260000, "delta": -20000}
+  },
+  "by_category": {
+    "C01": {"base_amount": 500000, "report_amount": 380000, "delta": -120000},
+    "C02": {"base_amount": 300000, "report_amount": 270000, "delta": -30000},
+    "C03": {"base_amount": 200000, "report_amount": 220000, "delta": 20000}
+  },
+  "reconciliation": {
+    "store_group_delta_sum": -130000,
+    "category_group_delta_sum": -130000,
+    "equals_overall_delta": true
+  },
+  "quality": {
+    "row_count": 18,
+    "duplicate_row_ids": 0,
+    "null_key_fields": 0,
+    "currency_violations": 0,
+    "date_parse_errors": 0
+  },
+  "checks": {
+    "quality-and-coverage": "PASS",
+    "group-reconciliation": "PASS",
+    "evidence-coverage": "PASS"
+  }
+}

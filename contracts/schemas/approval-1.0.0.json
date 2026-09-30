@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analysis-ir.local/contracts/approval-1.0.0.json",
+  "title": "确认记录：确认人、时间、批准内容摘要（approval_target 六类 digest）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "approval_target", "user_action", "result"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "id": {"type": "string", "pattern": "^approval-[a-z0-9-]+$"},
+    "approval_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysis_contract_digest", "analysis_plan_digest",
+        "metric_and_binding_digest", "data_snapshot_manifest_digest",
+        "method_and_check_registry_digest", "execution_manifest_digest"
+      ],
+      "properties": {
+        "analysis_contract_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
+        "analysis_plan_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
+        "metric_and_binding_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
+        "data_snapshot_manifest_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
+        "method_and_check_registry_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
+        "execution_manifest_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"}
+      }
+    },
+    "user_action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operator", "action", "origin", "at"],
+      "properties": {
+        "operator": {"type": "string", "minLength": 1},
+        "action": {"enum": ["approve"]},
+        "origin": {"enum": ["cli", "ui", "test"]},
+        "at": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_datetime"},
+        "warnings_acknowledged": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code"],
+            "properties": {
+              "code": {"type": "string"},
+              "note": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "result": {"enum": ["valid", "superseded"]}
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analysis-ir.local/contracts/analysis-contract-1.0.0.json",
+  "title": "业务约定：为什么分析、支持什么决策、边界与非目标",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "version", "decision_purpose", "question",
+    "non_goals", "success_criteria", "comparison_scope"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "version": {"type": "integer", "minimum": 1},
+    "decision_purpose": {"type": "string", "minLength": 1},
+    "question": {"type": "string", "minLength": 1},
+    "non_goals": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "success_criteria": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "comparison_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_period", "report_period"],
+      "properties": {
+        "base_period": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_date"},
+        "report_period": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_date"},
+        "store_eligibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": {"enum": ["all-stores", "declared-list"]},
+            "list_ref": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/object_ref"},
+            "rule_note": {"type": "string"}
+          }
+        }
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["topic", "status"],
+        "properties": {
+          "topic": {"type": "string"},
+          "status": {"enum": ["pending", "resolved"]},
+          "resolution": {"type": "string"}
+        }
+      }
+    }
+  }
+}

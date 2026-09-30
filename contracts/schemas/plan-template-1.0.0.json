@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analysis-ir.local/contracts/plan-template-1.0.0.json",
+  "title": "计划模板：可复用方法、参数槽位、适用条件；不含旧批准/数据/结论",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "template_id", "version", "name", "question_frame", "steps", "param_slots", "applicable_conditions"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "template_id": {"type": "string", "pattern": "^template-[a-z0-9-]+$"},
+    "version": {"type": "integer", "minimum": 1},
+    "name": {"type": "string", "minLength": 1},
+    "question_frame": {"type": "string", "minLength": 1},
+    "steps": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "method_ref", "depends_on", "outputs"],
+        "properties": {
+          "step_id": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/step_id"},
+          "method_ref": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/method_ref"},
+          "depends_on": {
+            "type": "array",
+            "items": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/step_id"}
+          },
+          "param_slot": {"type": "string"},
+          "outputs": {
+            "type": "array", "minItems": 1,
+            "items": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/artifact_name"}
+          }
+        }
+      }
+    },
+    "param_slots": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "kind"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "kind": {"enum": ["period", "dimension", "metric-ref", "scope", "text"]},
+          "required": {"type": "boolean", "default": true},
+          "default": {}
+        }
+      }
+    },
+    "applicable_conditions": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["condition"],
+        "properties": {
+          "condition": {"type": "string"},
+          "boundary": {"type": "string"}
+        }
+      }
+    },
+    "required_check_refs": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/method_ref"}
+    }
+  }
+}

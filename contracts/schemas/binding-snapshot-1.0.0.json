@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analysis-ir.local/contracts/binding-snapshot-1.0.0.json",
+  "title": "绑定快照：业务概念到表字段/维度/指标的绑定",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "version", "dataset_ref", "metric_refs", "field_map", "dimensions"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "version": {"type": "integer", "minimum": 1},
+    "dataset_ref": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/object_ref"},
+    "metric_refs": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/object_ref"}
+    },
+    "field_map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row_id", "business_date", "store_id", "category_id", "net_sales_amount"],
+      "properties": {
+        "row_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+        "business_date": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+        "store_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+        "category_id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+        "net_sales_amount": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+        "currency": {"type": "string", "pattern": "^[a-z0-9_]+$"}
+      }
+    },
+    "dimensions": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "source_field"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "source_field": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "unknown_label": {"type": "string"}
+        }
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["topic"],
+        "properties": {
+          "topic": {"type": "string"},
+          "candidates": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

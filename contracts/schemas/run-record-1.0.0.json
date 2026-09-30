@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analysis-ir.local/contracts/run-record-1.0.0.json",
+  "title": "运行记录：运行编号、绑定摘要、步骤状态、终止原因",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "plan_id", "plan_version", "plan_digest", "status", "steps", "started_at"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "run_id": {"type": "string", "pattern": "^run-[0-9]{4,}$"},
+    "attempt": {"type": "integer", "minimum": 1, "default": 1},
+    "plan_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "plan_version": {"type": "integer", "minimum": 1},
+    "plan_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
+    "status": {
+      "enum": ["QUEUED", "PREFLIGHT", "BLOCKED", "RUNNING", "COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT"]
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "status"],
+        "properties": {
+          "step_id": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/step_id"},
+          "status": {"enum": ["PENDING", "RUNNING", "DONE", "FAILED", "SKIPPED", "CANCELLED"]},
+          "started_at": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_datetime"},
+          "ended_at": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_datetime"},
+          "error": {"type": "string"}
+        }
+      }
+    },
+    "started_at": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_datetime"},
+    "ended_at": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_datetime"},
+    "terminated_reason": {
+      "enum": ["completed", "error", "cancelled", "timeout", "budget-exhausted", "interrupted"]
+    },
+    "used_approval": {"type": "string", "pattern": "^approval-[a-z0-9-]+$"}
+  }
+}

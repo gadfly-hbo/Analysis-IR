@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analysis-ir.local/contracts/data-snapshot-manifest-1.0.0.json",
+  "title": "数据快照清单：输入快照、内容指纹、解析配置与覆盖声明",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "version", "source_file", "byte_digest", "row_count", "parse_config", "coverage", "snapshot_date"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "version": {"type": "integer", "minimum": 1},
+    "source_file": {"type": "string", "minLength": 1},
+    "byte_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
+    "row_count": {"type": "integer", "minimum": 0},
+    "parse_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delimiter", "encoding", "date_format"],
+      "properties": {
+        "delimiter": {"type": "string", "minLength": 1},
+        "encoding": {"type": "string", "minLength": 1},
+        "date_format": {"type": "string", "minLength": 1},
+        "decimal_places": {"type": "integer", "minimum": 0, "maximum": 6, "default": 2},
+        "timezone": {"type": "string", "minLength": 1}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"enum": ["declared-complete", "manifest-ref", "unverified"]},
+        "calendar_days_expected": {"type": "integer", "minimum": 1},
+        "manifest_ref": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/object_ref"},
+        "acknowledged_by_user": {"type": "boolean", "default": false}
+      }
+    },
+    "snapshot_date": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/iso_date"}
+  }
+}

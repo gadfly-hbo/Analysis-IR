@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analysis-ir.local/contracts/execution-manifest-1.0.0.json",
+  "title": "执行清单：后端、方法实现版本、输入绑定、权限、预算与输出位置",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "plan_digest", "approval_digest", "runner_id",
+    "method_versions", "input_snapshots", "resource_limits", "allowed_paths",
+    "network_policy", "expected_outputs"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "plan_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
+    "approval_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
+    "runner_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "runner_capability_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
+    "method_versions": {
+      "type": "object",
+      "additionalProperties": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/semver"}
+    },
+    "check_versions": {
+      "type": "object",
+      "additionalProperties": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/semver"}
+    },
+    "input_snapshots": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "byte_digest"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "version": {"type": "integer", "minimum": 1},
+          "byte_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"}
+        }
+      }
+    },
+    "resource_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_timeout_seconds", "step_timeout_seconds", "memory_mb", "temp_space_mb"],
+      "properties": {
+        "run_timeout_seconds": {"type": "integer", "minimum": 1},
+        "step_timeout_seconds": {"type": "integer", "minimum": 1},
+        "memory_mb": {"type": "integer", "minimum": 64},
+        "temp_space_mb": {"type": "integer", "minimum": 16}
+      }
+    },
+    "allowed_paths": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "network_policy": {"enum": ["denied"]},
+    "expected_outputs": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/artifact_name"}
+    },
+    "money_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currency", "decimal_places", "timezone"],
+      "properties": {
+        "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+        "decimal_places": {"type": "integer", "minimum": 0, "maximum": 6},
+        "timezone": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

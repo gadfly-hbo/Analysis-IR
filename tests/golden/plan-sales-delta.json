@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0.0",
+  "plan_id": "sales-delta-demo",
+  "plan_version": 1,
+  "contract_ref": {"id": "sales-review-contract", "version": 1},
+  "binding_ref": {"id": "sales-local-binding", "version": 1},
+  "dataset_refs": [{"id": "sales-frozen-snapshot", "version": 1}],
+  "metric_refs": [{"id": "net-sales", "version": 1}],
+  "method_registry_ref": {"id": "sales-methods", "version": "1.0.0"},
+  "check_registry_ref": {"id": "sales-checks", "version": "1.0.0"},
+  "execution_policy_ref": {"id": "local-fixed-methods", "version": 1},
+  "steps": [
+    {
+      "step_id": "quality",
+      "method_ref": "sales-methods:quality@1.0.0",
+      "depends_on": [],
+      "inputs": ["sales-frozen-snapshot@1"],
+      "outputs": ["quality-evidence"]
+    },
+    {
+      "step_id": "scope",
+      "method_ref": "sales-methods:scope@1.0.0",
+      "depends_on": ["quality"],
+      "inputs": ["sales-frozen-snapshot@1"],
+      "params_ref": "sales-review-contract@1:comparison-scope",
+      "outputs": ["scoped-sales", "scope-evidence"]
+    },
+    {
+      "step_id": "overall",
+      "method_ref": "sales-methods:period-delta@1.0.0",
+      "depends_on": ["scope"],
+      "inputs": ["scoped-sales"],
+      "outputs": ["overall-delta"]
+    },
+    {
+      "step_id": "store",
+      "method_ref": "sales-methods:group-delta@1.0.0",
+      "depends_on": ["scope"],
+      "inputs": ["scoped-sales"],
+      "params": {"dimension": "store_id"},
+      "outputs": ["store-delta"]
+    },
+    {
+      "step_id": "category",
+      "method_ref": "sales-methods:group-delta@1.0.0",
+      "depends_on": ["scope"],
+      "inputs": ["scoped-sales"],
+      "params": {"dimension": "category_id"},
+      "outputs": ["category-delta"]
+    },
+    {
+      "step_id": "validate",
+      "method_ref": "sales-methods:reconcile@1.0.0",
+      "depends_on": ["overall", "store", "category"],
+      "inputs": ["overall-delta", "store-delta", "category-delta"],
+      "outputs": ["reconciliation-evidence"]
+    }
+  ],
+  "required_check_refs": [
+    "sales-checks:quality-and-coverage@1.0.0",
+    "sales-checks:group-reconciliation@1.0.0",
+    "sales-checks:evidence-coverage@1.0.0"
+  ],
+  "output_contract": {
+    "required_artifacts": [
+      "quality-evidence", "scope-evidence", "overall-delta",
+      "store-delta", "category-delta", "reconciliation-evidence"
+    ],
+    "allowed_finding_types": ["descriptive", "arithmetic-decomposition"],
+    "require_evidence_refs": true,
+    "require_limitations": true
+  }
+}

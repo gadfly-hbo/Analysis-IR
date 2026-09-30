@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analysis-ir.local/contracts/metric-contract-1.0.0.json",
+  "title": "指标契约：公式、单位、粒度与口径",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "version", "name", "formula", "unit", "grain", "treatments"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "version": {"type": "integer", "minimum": 1},
+    "name": {"type": "string", "minLength": 1},
+    "formula": {"type": "string", "minLength": 1},
+    "unit": {"enum": ["currency", "count", "ratio"]},
+    "grain": {"enum": ["row", "day", "period", "store", "category"]},
+    "treatments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tax", "discounts", "returns_attribution"],
+      "properties": {
+        "tax": {"enum": ["net-of-tax", "gross", "unconfirmed"]},
+        "discounts": {"enum": ["after-discount", "before-discount", "unconfirmed"]},
+        "returns_attribution": {"enum": ["transaction-period", "original-period", "unconfirmed"]},
+        "filters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["field", "op", "value"],
+            "properties": {
+              "field": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+              "op": {"enum": ["eq", "ne", "in", "not_in", "gt", "gte", "lt", "lte"]},
+              "value": {}
+            }
+          }
+        }
+      }
+    },
+    "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+    "unconfirmed_notes": {"type": "array", "items": {"type": "string"}}
+  }
+}

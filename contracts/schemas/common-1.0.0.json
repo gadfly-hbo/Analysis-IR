@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://analysis-ir.local/contracts/common-1.0.0.json",
+  "title": "Analysis IR 公共定义",
+  "type": "object",
+  "$defs": {
+    "object_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "version": {"type": "integer", "minimum": 1}
+      }
+    },
+    "registry_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "pattern": "^[a-z0-9][a-z0-9-]*$"},
+        "version": {
+          "oneOf": [
+            {"type": "integer", "minimum": 1},
+            {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
+          ]
+        }
+      }
+    },
+    "digest64": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "semver": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "method_ref": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "iso_datetime": {"type": "string", "format": "date-time"},
+    "iso_date": {"type": "string", "format": "date"},
+    "step_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "artifact_name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}
+  }
+}
