@@ -165,7 +165,10 @@ class PlanService:
                 step["inputs"] = ["overall-delta", "store-delta", "category-delta"]
             steps.append(step)
 
-        outputs = {name for s in steps for name in s["outputs"]}
+        outputs = set(template.get(
+            "required_artifacts",
+            {name for s in steps for name in s["outputs"]},
+        ))
         return {
             "schema_version": "1.0.0",
             "plan_id": slug,

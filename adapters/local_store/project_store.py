@@ -44,7 +44,10 @@ CREATE TABLE IF NOT EXISTS kv (
 """
 
 
-_ID_KEYS = ("cr_id", "run_id", "evidence_id", "finding_id", "template_id", "plan_id", "id")
+_ID_KEYS = (
+    "cr_id", "evidence_id", "finding_id", "template_id",
+    "run_id", "plan_id", "id",
+)
 
 
 def _object_id(obj: dict[str, Any]) -> str:
@@ -176,6 +179,18 @@ class ProjectStore:
             raise
         finally:
             cur.close()
+
+    def set_kv(self, key: str, value: str) -> None:
+        self._conn.execute(
+            "INSERT INTO kv (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+        self._conn.commit()
+
+    def get_kv(self, key: str) -> str | None:
+        row = self._conn.execute("SELECT value FROM kv WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else None
 
     def audit(self, at: str, actor: str, action: str, detail: str = "") -> None:
         self._conn.execute(

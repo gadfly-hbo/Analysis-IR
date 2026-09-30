@@ -4,7 +4,7 @@
   "title": "计划模板：可复用方法、参数槽位、适用条件；不含旧批准/数据/结论",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "template_id", "version", "name", "question_frame", "steps", "param_slots", "applicable_conditions"],
+  "required": ["schema_version", "template_id", "version", "name", "question_frame", "steps", "param_slots", "applicable_conditions", "required_artifacts"],
   "properties": {
     "schema_version": {"const": "1.0.0"},
     "template_id": {"type": "string", "pattern": "^template-[a-z0-9-]+$"},
@@ -57,6 +57,10 @@
           "boundary": {"type": "string"}
         }
       }
+    },
+    "required_artifacts": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/artifact_name"}
     },
     "required_check_refs": {
       "type": "array", "minItems": 1,
