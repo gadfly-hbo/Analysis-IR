@@ -5,15 +5,15 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version", "id", "plan_digest", "approval_digest", "runner_id",
+    "schema_version", "id", "version", "plan_digest", "runner_id",
     "method_versions", "input_snapshots", "resource_limits", "allowed_paths",
     "network_policy", "expected_outputs"
   ],
   "properties": {
     "schema_version": {"const": "1.0.0"},
     "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "version": {"type": "integer", "minimum": 1},
     "plan_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
-    "approval_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
     "runner_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "runner_capability_digest": {"$ref": "https://analysis-ir.local/contracts/common-1.0.0.json#/$defs/digest64"},
     "method_versions": {

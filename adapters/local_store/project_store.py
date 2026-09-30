@@ -40,6 +40,20 @@ CREATE TABLE IF NOT EXISTS audit_log (
 """
 
 
+_ID_KEYS = ("cr_id", "run_id", "evidence_id", "finding_id", "template_id", "plan_id", "id")
+
+
+def _object_id(obj: dict[str, Any]) -> str:
+    for key in _ID_KEYS:
+        if key in obj:
+            return str(obj[key])
+    raise KeyError(f"对象缺少可识别的主键字段（{_ID_KEYS}）")
+
+
+class ImmutableViolation(Exception):
+    """同一 (kind, id, version) 以不同内容再次保存——对象版本不可覆盖。"""
+
+
 class ProjectStore:
     """项目级对象存储。每个实例对应一个 SQLite 文件（一个本地项目）。"""
 
@@ -55,18 +69,52 @@ class ProjectStore:
         self._conn.close()
 
     def put(self, kind: str, obj: dict[str, Any], created_at: str) -> str:
-        """追加保存对象的一个版本，返回其内容摘要。同版本重复保存同内容幂等。"""
-        obj_id = obj["id"] if "id" in obj else obj["plan_id"]
-        version = obj["version"] if "version" in obj else obj["plan_version"]
+        """追加保存对象的一个版本，返回其内容摘要。
+
+        同 (kind, id, version) 重复保存同内容幂等；内容不同则拒绝
+        （proposal 7.1/8.3：正式对象版本不原地覆盖）。
+        """
+        obj_id = _object_id(obj)
+        version = obj.get("version") or obj.get("plan_version") or 1
         doc = json.dumps(obj, ensure_ascii=False, sort_keys=True)
         content_digest = digest(obj)
-        self._conn.execute(
-            "INSERT OR REPLACE INTO objects (kind, id, version, doc, content_digest, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (kind, obj_id, version, doc, content_digest, created_at),
-        )
+        try:
+            self._conn.execute(
+                "INSERT INTO objects (kind, id, version, doc, content_digest, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (kind, obj_id, version, doc, content_digest, created_at),
+            )
+        except sqlite3.IntegrityError:
+            existing = self._conn.execute(
+                "SELECT content_digest FROM objects WHERE kind = ? AND id = ? AND version = ?",
+                (kind, obj_id, version),
+            ).fetchone()
+            if existing and existing["content_digest"] != content_digest:
+                raise ImmutableViolation(
+                    f"{kind} {obj_id}@{version} 已存在且内容不同，禁止覆盖；请创建新版本"
+                ) from None
         self._conn.commit()
         return content_digest
+
+    def find_content_digest(self, kind: str, obj_id: str, version: int) -> str | None:
+        row = self._conn.execute(
+            "SELECT content_digest FROM objects WHERE kind = ? AND id = ? AND version = ?",
+            (kind, obj_id, version),
+        ).fetchone()
+        return row["content_digest"] if row else None
+
+    def list_objects(self, kind: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT doc FROM objects WHERE kind = ? ORDER BY id, version", (kind,)
+        ).fetchall()
+        return [json.loads(r["doc"]) for r in rows]
+
+    def list_plan_statuses(self, plan_id: str) -> list[tuple[int, str]]:
+        rows = self._conn.execute(
+            "SELECT plan_version, status FROM plan_status WHERE plan_id = ? ORDER BY plan_version",
+            (plan_id,),
+        ).fetchall()
+        return [(r["plan_version"], r["status"]) for r in rows]
 
     def get(self, kind: str, obj_id: str, version: int) -> dict[str, Any] | None:
         row = self._conn.execute(

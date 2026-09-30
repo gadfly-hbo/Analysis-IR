@@ -156,8 +156,8 @@ class TestValidate:
         result = svc.create_draft("sales-delta", _full_params(), operator="analyst-a")
         plan = json.loads(json.dumps(result.plan))
         plan["steps"][1]["step_id"] = plan["steps"][0]["step_id"]
-        svc.save_draft(plan, operator="analyst-a")
-        report = svc.validate(plan["plan_id"], plan["plan_version"])
+        svc.save_draft(plan, operator="analyst-a", bump=True)
+        report = svc.validate(plan["plan_id"], 2)
         assert any(i.code == "DUPLICATE_STEP_ID" for i in report.issues)
 
     def test_cyclic_dependency_reported(self, tmp_path: Path) -> None:
@@ -165,8 +165,8 @@ class TestValidate:
         result = svc.create_draft("sales-delta", _full_params(), operator="analyst-a")
         plan = json.loads(json.dumps(result.plan))
         plan["steps"][0]["depends_on"] = ["validate"]
-        svc.save_draft(plan, operator="analyst-a")
-        report = svc.validate(plan["plan_id"], plan["plan_version"])
+        svc.save_draft(plan, operator="analyst-a", bump=True)
+        report = svc.validate(plan["plan_id"], 2)
         assert any(i.code == "CYCLIC_DEPENDENCY" for i in report.issues)
 
     def test_unknown_step_in_depends_on(self, tmp_path: Path) -> None:
@@ -174,8 +174,8 @@ class TestValidate:
         result = svc.create_draft("sales-delta", _full_params(), operator="analyst-a")
         plan = json.loads(json.dumps(result.plan))
         plan["steps"][0]["depends_on"] = ["nonexistent-step"]
-        svc.save_draft(plan, operator="analyst-a")
-        report = svc.validate(plan["plan_id"], plan["plan_version"])
+        svc.save_draft(plan, operator="analyst-a", bump=True)
+        report = svc.validate(plan["plan_id"], 2)
         assert any(i.code == "UNKNOWN_DEPENDENCY" for i in report.issues)
 
     def test_unsupported_method_reported(self, tmp_path: Path) -> None:
@@ -184,8 +184,8 @@ class TestValidate:
         result = svc.create_draft("sales-delta", _full_params(), operator="analyst-a")
         plan = json.loads(json.dumps(result.plan))
         plan["steps"][0]["method_ref"] = "sales-methods:free-sql@1.0.0"
-        svc.save_draft(plan, operator="analyst-a")
-        report = svc.validate(plan["plan_id"], plan["plan_version"])
+        svc.save_draft(plan, operator="analyst-a", bump=True)
+        report = svc.validate(plan["plan_id"], 2)
         assert any(i.code == "UNSUPPORTED_METHOD" for i in report.issues)
 
     def test_output_artifact_without_producer_reported(self, tmp_path: Path) -> None:
@@ -193,8 +193,8 @@ class TestValidate:
         result = svc.create_draft("sales-delta", _full_params(), operator="analyst-a")
         plan = json.loads(json.dumps(result.plan))
         plan["output_contract"]["required_artifacts"].append("phantom-table")
-        svc.save_draft(plan, operator="analyst-a")
-        report = svc.validate(plan["plan_id"], plan["plan_version"])
+        svc.save_draft(plan, operator="analyst-a", bump=True)
+        report = svc.validate(plan["plan_id"], 2)
         assert any(i.code == "ORPHAN_ARTIFACT" for i in report.issues)
 
     def test_status_flows_to_needs_input_when_issues(self, tmp_path: Path) -> None:

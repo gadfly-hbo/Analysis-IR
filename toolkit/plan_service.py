@@ -14,6 +14,7 @@ from typing import Any
 
 from adapters.local_store.project_store import ProjectStore
 from toolkit.contracts import validate_object
+from toolkit.diff import DiffEntry, leaf_diff
 from toolkit.validation import ValidationIssue, ValidationReport
 
 _PLAN_KIND = "analysis-plan-ir"
@@ -216,6 +217,22 @@ class PlanService:
 
     def get_status(self, plan_id: str, version: int) -> str | None:
         return self.store.get_status(plan_id, version)
+
+    def diff(self, plan_id: str, version_a: int, version_b: int) -> list[DiffEntry]:
+        """两个明确版本之间的语义级差异（proposal F06）。"""
+        plan_a = self.get_plan(plan_id, version_a)
+        plan_b = self.get_plan(plan_id, version_b)
+
+        def contract_for(plan: dict[str, Any]) -> dict[str, Any]:
+            ref = plan["contract_ref"]
+            doc = self.store.get("analysis-contract", ref["id"], ref["version"])
+            return doc if doc is not None else {}
+
+        return leaf_diff(
+            {"plan": plan_a, "contract": contract_for(plan_a)},
+            {"plan": plan_b, "contract": contract_for(plan_b)},
+            "",
+        )
 
     # ---------- G0 校验 ----------
 

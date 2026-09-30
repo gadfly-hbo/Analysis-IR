@@ -4,10 +4,11 @@
   "title": "变更请求：原因、旧值/新值、影响对象与处理结果",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "cr_id", "plan_id", "reason", "changes", "status"],
+  "required": ["schema_version", "cr_id", "version", "plan_id", "reason", "changes", "status"],
   "properties": {
     "schema_version": {"const": "1.0.0"},
     "cr_id": {"type": "string", "pattern": "^cr-[a-z0-9-]+$"},
+    "version": {"type": "integer", "minimum": 1},
     "plan_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "reason": {"type": "string", "minLength": 1},
     "proposed_by": {"enum": ["user", "agent"]},
