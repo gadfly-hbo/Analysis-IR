@@ -1,14 +1,12 @@
 """S8 HTTP 层测试（接缝 S-D）：只测传输层关注点，业务断言不在 HTTP 层重复。"""
 
-import shutil
 from pathlib import Path
 
+import pytest
+from env_helper import FIELD_MAP, GOLDEN_COVERAGE, GOLDEN_CSV, PARAMS, TREATMENTS
 from fastapi.testclient import TestClient
 
 from app.server import create_app
-from env_helper import FIELD_MAP, GOLDEN_COVERAGE, GOLDEN_CSV, PARAMS, TREATMENTS
-
-import pytest
 
 
 @pytest.fixture
@@ -120,6 +118,33 @@ class TestHttpHappyPath:
         assert accept.status_code == 200
         findings = client.get(f"/api/runs/{run_id}/findings", headers=_auth(token))
         assert len(findings.json()["findings"]) == 3
+
+    def test_same_source_readability(self, tmp_path: Path) -> None:
+        """T21：用户阅读对象与机器执行对象同源——同一 digest，不存在双份权威文本。"""
+        from toolkit.digest import digest
+
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        app = create_app(project_root)
+        client = TestClient(app)
+        token = _token(client)
+
+        created = client.post(
+            "/api/plans", json={"template": "sales-delta", "params": PARAMS,
+                                 "operator": "analyst-a"},
+            headers=_auth(token),
+        ).json()
+        plan = created["plan"]
+        # UI 读取的计划与运行记录绑定的 plan_digest 必须一致（同一对象）
+        fetched = client.get(
+            f"/api/plans/{plan['plan_id']}/{plan['plan_version']}", headers=_auth(token)
+        ).json()["plan"]
+        assert digest(fetched) == digest(plan)
+        # 重复读取稳定（渲染同源）
+        again = client.get(
+            f"/api/plans/{plan['plan_id']}/{plan['plan_version']}", headers=_auth(token)
+        ).json()["plan"]
+        assert again == plan
 
     def test_openapi_schema_reachable(self, client: TestClient) -> None:
         token = _token(client)

@@ -81,6 +81,39 @@ def create_app(project_root: Path) -> FastAPI:
             "status": plan_service.get_status(result.plan["plan_id"], 1),
         }
 
+    @app.get("/api/plans")
+    def list_plans() -> dict[str, Any]:
+        plans = []
+        for plan in store.list_objects("analysis-plan-ir"):
+            plans.append({
+                "plan_id": plan["plan_id"],
+                "plan_version": plan["plan_version"],
+                "status": store.get_status(plan["plan_id"], plan["plan_version"]) or "DRAFT",
+            })
+        return {"plans": plans}
+
+    @app.post("/api/bindings")
+    def create_binding(body: dict[str, Any]) -> dict[str, Any]:
+        plan = plan_service.get_plan(body["plan_id"], body["plan_version"])
+        source = Path(body["source_file"]).expanduser()
+        if not source.exists():
+            raise HTTPException(422, f"数据文件不存在: {source}")
+        result = context.bind(
+            plan=plan,
+            source_file=source,
+            field_map=body.get("field_map") or {
+                "row_id": "row_id", "business_date": "business_date",
+                "store_id": "store_id", "category_id": "category_id",
+                "net_sales_amount": "net_sales_amount", "currency": "currency",
+            },
+            metric_treatments=body.get("metric_treatments") or {},
+            coverage=body.get("coverage") or {"kind": "unverified"},
+            operator=body["operator"],
+            store=store,
+        )
+        return {"manifest": result.manifest, "binding": result.binding,
+                "warnings": result.warnings}
+
     @app.get("/api/plans/{plan_id}/{version}")
     def get_plan(plan_id: str, version: int) -> dict[str, Any]:
         try:
@@ -202,5 +235,12 @@ def create_app(project_root: Path) -> FastAPI:
         except Exception as exc:  # noqa: BLE001 - 导出拒绝 → 409
             raise HTTPException(409, str(exc)) from exc
         return {"package": str(path)}
+
+    # 本地界面：托管已构建的前端产物（app/web/dist）
+    web_dist = Path(__file__).parent / "web" / "dist"
+    if web_dist.exists():
+        from fastapi.staticfiles import StaticFiles
+
+        app.mount("/", StaticFiles(directory=web_dist, html=True), name="web")
 
     return app
